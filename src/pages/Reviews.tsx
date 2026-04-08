@@ -26,24 +26,26 @@ export default function Reviews() {
   }, [profile])
 
   const loadData = async () => {
-    if (!profile) return
-    if (isAdmin) {
-      const [usersRes, reviewsRes, scoresRes] = await Promise.all([
-        supabase.from('intern_users').select('*'),
-        supabase.from('intern_performance_reviews').select('*').order('review_date', { ascending: false }),
-        supabase.from('intern_performance_scores').select('*'),
-      ])
-      if (usersRes.data) setTeamMembers(usersRes.data as TeamMember[])
-      if (reviewsRes.data) setReviews(reviewsRes.data as PerformanceReview[])
-      if (scoresRes.data) setScores(scoresRes.data as PerformanceScore[])
-    } else {
-      const [reviewsRes, scoresRes] = await Promise.all([
-        supabase.from('intern_performance_reviews').select('*').eq('intern_id', profile.id).order('review_date', { ascending: false }),
-        supabase.from('intern_performance_scores').select('*'),
-      ])
-      if (reviewsRes.data) setReviews(reviewsRes.data as PerformanceReview[])
-      if (scoresRes.data) setScores(scoresRes.data as PerformanceScore[])
-    }
+    if (!profile) { setLoading(false); return }
+    try {
+      if (isAdmin) {
+        const [usersRes, reviewsRes, scoresRes] = await Promise.all([
+          supabase.from('intern_users').select('*'),
+          supabase.from('intern_performance_reviews').select('*').order('review_date', { ascending: false }),
+          supabase.from('intern_performance_scores').select('*'),
+        ])
+        if (usersRes.data) setTeamMembers(usersRes.data as TeamMember[])
+        if (reviewsRes.data) setReviews(reviewsRes.data as PerformanceReview[])
+        if (scoresRes.data) setScores(scoresRes.data as PerformanceScore[])
+      } else {
+        const [reviewsRes, scoresRes] = await Promise.all([
+          supabase.from('intern_performance_reviews').select('*').eq('intern_id', profile.id).order('review_date', { ascending: false }),
+          supabase.from('intern_performance_scores').select('*'),
+        ])
+        if (reviewsRes.data) setReviews(reviewsRes.data as PerformanceReview[])
+        if (scoresRes.data) setScores(scoresRes.data as PerformanceScore[])
+      }
+    } catch (err) { console.error(err) }
     setLoading(false)
   }
 

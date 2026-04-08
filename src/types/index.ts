@@ -1,15 +1,14 @@
 export interface TeamMember {
   id: string
-  auth_id: string
   email: string
   display_name: string
-  role: 'admin' | 'member'
-  position: string
+  role: string
+  position?: string
   avatar_url?: string
   phone?: string
   start_date?: string
-  status: 'active' | 'inactive'
-  created_at: string
+  status?: string
+  created_at?: string
 }
 
 export interface DailyNote {

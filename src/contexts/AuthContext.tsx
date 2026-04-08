@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data } = await supabase
       .from('intern_users')
       .select('*')
-      .eq('auth_id', userId)
+      .eq('id', userId)
       .single()
     if (data) setProfile(data as TeamMember)
   }
@@ -69,12 +69,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (data.user) {
       await supabase.from('intern_users').insert({
-        auth_id: data.user.id,
+        id: data.user.id,
         email,
         display_name: displayName,
         role: 'member',
-        position: 'intern',
-        status: 'active',
       })
     }
     return { error: null }

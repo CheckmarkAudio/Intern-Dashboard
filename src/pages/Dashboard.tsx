@@ -18,8 +18,12 @@ export default function Dashboard() {
   }, [profile])
 
   const loadData = async () => {
-    if (!profile) return
+    if (!profile) {
+      setLoading(false)
+      return
+    }
 
+    try {
     if (isAdmin) {
       const [usersRes, notesRes, leadsRes] = await Promise.all([
         supabase.from('intern_users').select('*'),
@@ -37,7 +41,11 @@ export default function Dashboard() {
       if (notesRes.data) setRecentNotes(notesRes.data as DailyNote[])
       if (leadsRes.data) setLeads(leadsRes.data as Lead[])
     }
-    setLoading(false)
+    } catch (err) {
+      console.error('Dashboard load error:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (loading) {

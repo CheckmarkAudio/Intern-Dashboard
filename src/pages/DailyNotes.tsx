@@ -35,11 +35,13 @@ export default function DailyNotes() {
   }
 
   const loadNotes = async () => {
-    if (!profile) return
-    let query = supabase.from('intern_daily_notes').select('*').order('note_date', { ascending: false })
-    if (!isAdmin) query = query.eq('intern_id', profile.id)
-    const { data } = await query
-    if (data) setNotes(data as DailyNote[])
+    if (!profile) { setLoading(false); return }
+    try {
+      let query = supabase.from('intern_daily_notes').select('*').order('note_date', { ascending: false })
+      if (!isAdmin) query = query.eq('intern_id', profile.id)
+      const { data } = await query
+      if (data) setNotes(data as DailyNote[])
+    } catch (err) { console.error(err) }
     setLoading(false)
   }
 

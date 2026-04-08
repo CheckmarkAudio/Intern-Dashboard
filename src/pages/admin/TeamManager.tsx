@@ -70,14 +70,10 @@ export default function TeamManager() {
       }).eq('id', editingMember.id)
     } else {
       await supabase.from('intern_users').insert({
+        id: crypto.randomUUID(),
         display_name: formData.display_name,
         email: formData.email,
-        auth_id: crypto.randomUUID(),
         role: formData.role,
-        position,
-        phone: formData.phone,
-        start_date: formData.start_date || null,
-        status: formData.status,
       })
     }
 
@@ -95,13 +91,13 @@ export default function TeamManager() {
     setFormData({
       display_name: member.display_name,
       email: member.email,
-      role: member.role,
-      position: knownPosition ? member.position : 'custom',
+      role: member.role as 'admin' | 'member',
+      position: knownPosition ? (member.position ?? 'intern') : 'custom',
       phone: member.phone ?? '',
       start_date: member.start_date ?? '',
-      status: member.status,
+      status: (member.status ?? 'active') as 'active' | 'inactive',
     })
-    if (!knownPosition) setCustomPosition(member.position)
+    if (!knownPosition) setCustomPosition(member.position ?? '')
     setShowForm(true)
   }
 
@@ -136,7 +132,8 @@ export default function TeamManager() {
     })
 
   const positionCounts = members.reduce<Record<string, number>>((acc, m) => {
-    acc[m.position] = (acc[m.position] ?? 0) + 1
+    const pos = m.position ?? 'member'
+    acc[pos] = (acc[pos] ?? 0) + 1
     return acc
   }, {})
 
@@ -272,8 +269,8 @@ export default function TeamManager() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-sm">{member.display_name}</h3>
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium capitalize mt-0.5 ${getPositionStyle(member.position)}`}>
-                      {member.position}
+                    <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium capitalize mt-0.5 ${getPositionStyle(member.position ?? 'member')}`}>
+                      {member.position ?? 'member'}
                     </span>
                   </div>
                 </div>

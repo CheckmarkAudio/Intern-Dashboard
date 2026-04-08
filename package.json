@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "deploy": "npm run build && cp dist/index.html index.html && cp dist/index.html 404.html && rm -f assets/*.js assets/*.css && cp dist/assets/* assets/"
+    "deploy": "npm run build && cp dist/index.html 404.html && rm -f assets/*.js assets/*.css && cp dist/assets/* assets/"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.0",

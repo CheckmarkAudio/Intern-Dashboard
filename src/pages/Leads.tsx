@@ -44,11 +44,13 @@ export default function Leads() {
   useEffect(() => { loadLeads() }, [profile])
 
   const loadLeads = async () => {
-    if (!profile) return
-    let query = supabase.from('intern_leads').select('*').order('created_at', { ascending: false })
-    if (!isAdmin) query = query.eq('intern_id', profile.id)
-    const { data } = await query
-    if (data) setLeads(data as Lead[])
+    if (!profile) { setLoading(false); return }
+    try {
+      let query = supabase.from('intern_leads').select('*').order('created_at', { ascending: false })
+      if (!isAdmin) query = query.eq('intern_id', profile.id)
+      const { data } = await query
+      if (data) setLeads(data as Lead[])
+    } catch (err) { console.error(err) }
     setLoading(false)
   }
 

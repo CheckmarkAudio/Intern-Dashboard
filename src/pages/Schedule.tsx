@@ -30,11 +30,13 @@ export default function Schedule() {
   useEffect(() => { loadSchedule() }, [profile])
 
   const loadSchedule = async () => {
-    if (!profile) return
-    let query = supabase.from('intern_schedule_templates').select('*').order('day_of_week', { ascending: true })
-    if (!isAdmin) query = query.eq('intern_id', profile.id)
-    const { data } = await query
-    if (data) setSchedules(data as ScheduleTemplate[])
+    if (!profile) { setLoading(false); return }
+    try {
+      let query = supabase.from('intern_schedule_templates').select('*').order('day_of_week', { ascending: true })
+      if (!isAdmin) query = query.eq('intern_id', profile.id)
+      const { data } = await query
+      if (data) setSchedules(data as ScheduleTemplate[])
+    } catch (err) { console.error(err) }
     setLoading(false)
   }
 
