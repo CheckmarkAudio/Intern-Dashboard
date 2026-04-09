@@ -34,6 +34,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), deployToRoot()],
   base: '/Intern-Dashboard/',
   root: 'src',
+  envDir: resolve(__dirname),
   publicDir: resolve(__dirname, 'public'),
   build: {
     outDir: resolve(__dirname, 'dist'),
