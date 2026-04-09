@@ -13,7 +13,7 @@ function deployToRoot() {
       const distAssets = resolve(distDir, 'assets')
       const rootAssets = resolve(rootDir, 'assets')
 
-      const htmlFile = resolve(distDir, 'entry.html')
+      const htmlFile = resolve(distDir, 'index.html')
       copyFileSync(htmlFile, resolve(rootDir, 'index.html'))
       copyFileSync(htmlFile, resolve(rootDir, '404.html'))
 
@@ -40,7 +40,7 @@ export default defineConfig({
     outDir: resolve(__dirname, 'dist'),
     emptyOutDir: true,
     rollupOptions: {
-      input: resolve(__dirname, 'src/entry.html'),
+      input: resolve(__dirname, 'src/index.html'),
     },
   },
 })

@@ -19,6 +19,10 @@ export default function Dashboard() {
   const [streak, setStreak] = useState(0)
   const [todayNote, setTodayNote] = useState<{ submitted_at?: string; manager_reply?: string } | null>(null)
 
+  // #region agent log
+  fetch('http://127.0.0.1:7877/ingest/db881b4b-41b3-45a6-b8aa-216a512aebee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e7c691'},body:JSON.stringify({sessionId:'e7c691',location:'Dashboard.tsx:render',message:'Dashboard render',data:{hasProfile:!!profile,isAdmin,profileId:profile?.id?.slice(0,8)},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+  // #endregion
+
   const daily = useChecklist('daily', new Date())
   const weekly = useChecklist('weekly', new Date())
 

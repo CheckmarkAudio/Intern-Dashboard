@@ -13,6 +13,10 @@ export default function Login() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
+  // #region agent log
+  fetch('http://127.0.0.1:7877/ingest/db881b4b-41b3-45a6-b8aa-216a512aebee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e7c691'},body:JSON.stringify({sessionId:'e7c691',location:'Login.tsx:render',message:'Login render',data:{authLoading,hasUser:!!user},timestamp:Date.now(),hypothesisId:'H2,H5'})}).catch(()=>{});
+  // #endregion
+
   if (authLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800">
