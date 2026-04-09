@@ -23,24 +23,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, email?: string) => {
+    // Try matching by id first (normal signup flow)
     const { data } = await supabase
       .from('intern_users')
       .select('*')
       .eq('id', userId)
-      .single()
-    if (data) setProfile(data as TeamMember)
+      .maybeSingle()
+    if (data) { setProfile(data as TeamMember); return }
+
+    // Fallback: match by email (for members created via TeamManager with a random id)
+    if (email) {
+      const { data: emailMatch } = await supabase
+        .from('intern_users')
+        .select('*')
+        .eq('email', email)
+        .maybeSingle()
+      if (emailMatch) {
+        // Link this auth user to the existing profile row
+        await supabase
+          .from('intern_users')
+          .update({ id: userId })
+          .eq('id', emailMatch.id)
+        setProfile({ ...emailMatch, id: userId } as TeamMember)
+      }
+    }
   }
 
   const refreshProfile = async () => {
-    if (user) await fetchProfile(user.id)
+    if (user) await fetchProfile(user.id, user.email)
   }
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
-      if (session?.user) await fetchProfile(session.user.id)
+      if (session?.user) await fetchProfile(session.user.id, session.user.email)
       setLoading(false)
     })
 
@@ -48,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
-        await fetchProfile(session.user.id)
+        await fetchProfile(session.user.id, session.user.email)
       } else {
         setProfile(null)
       }
@@ -68,12 +86,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) return { error: error as Error | null }
 
     if (data.user) {
-      await supabase.from('intern_users').insert({
-        id: data.user.id,
-        email,
-        display_name: displayName,
-        role: 'member',
-      })
+      // Check if a row already exists for this email (admin-created via TeamManager)
+      const { data: existing } = await supabase
+        .from('intern_users')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle()
+
+      if (existing) {
+        // Link existing row to this auth user
+        await supabase
+          .from('intern_users')
+          .update({ id: data.user.id, display_name: displayName })
+          .eq('email', email)
+      } else {
+        await supabase.from('intern_users').insert({
+          id: data.user.id,
+          email,
+          display_name: displayName,
+          role: 'member',
+        })
+      }
     }
     return { error: null }
   }
