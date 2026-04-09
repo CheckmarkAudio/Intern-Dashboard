@@ -35,12 +35,12 @@ export default function AdminSettings() {
           <div>
             <label className="block text-sm font-medium mb-1.5">Organization Name</label>
             <input value={orgName} onChange={e => setOrgName(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:ring-2 focus:ring-brand-500" />
+              className="w-full px-3 py-2.5 rounded-lg border border-border text-sm" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1.5">Tagline</label>
             <input value={orgTagline} onChange={e => setOrgTagline(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:ring-2 focus:ring-brand-500" />
+              className="w-full px-3 py-2.5 rounded-lg border border-border text-sm" />
           </div>
         </div>
       </div>
@@ -82,7 +82,7 @@ export default function AdminSettings() {
         <div className="space-y-2 text-sm">
           <div className="flex items-center justify-between p-3 rounded-lg bg-surface-alt">
             <span className="text-text-muted">Supabase Project</span>
-            <code className="text-xs bg-white px-2 py-1 rounded border border-border">ncljfjdcyswoeitsooty</code>
+            <code className="text-xs bg-surface-alt px-2 py-1 rounded border border-border">ncljfjdcyswoeitsooty</code>
           </div>
           <div className="flex items-center justify-between p-3 rounded-lg bg-surface-alt">
             <span className="text-text-muted">Admin User</span>
@@ -93,9 +93,9 @@ export default function AdminSettings() {
 
       {/* Save */}
       <div className="flex items-center justify-end gap-3">
-        {saved && <span className="text-sm text-green-600 font-medium">Settings saved!</span>}
+        {saved && <span className="text-sm text-emerald-400 font-medium">Settings saved!</span>}
         <button onClick={handleSave} disabled={saving}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 disabled:opacity-50">
+          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gold hover:bg-gold-muted text-black font-semibold text-sm disabled:opacity-50">
           {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
           Save Settings
         </button>

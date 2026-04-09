@@ -98,7 +98,7 @@ export default function DailyNotes() {
 
   if (loading) {
     return <div className="flex items-center justify-center h-64">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" />
+      <div className="animate-spin rounded-full h-8 w-8 border-2 border-gold/20 border-t-gold" />
     </div>
   }
 
@@ -112,7 +112,7 @@ export default function DailyNotes() {
         {!isAdmin && (
           <button
             onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-white text-sm font-medium hover:from-brand-600 hover:to-brand-700 shadow-sm shadow-brand-200 transition-all"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gold hover:bg-gold-muted text-black font-semibold transition-all"
           >
             {showForm ? <X size={16} /> : <Plus size={16} />}
             {showForm ? 'Cancel' : 'New Note'}
@@ -128,7 +128,7 @@ export default function DailyNotes() {
             <select
               value={selectedMember}
               onChange={e => setSelectedMember(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2 rounded-lg border border-border bg-surface text-sm focus:ring-2 focus:ring-brand-500"
+              className="appearance-none pl-3 pr-8 py-2 rounded-lg border border-border bg-surface text-sm"
             >
               <option value="all">All Members</option>
               {teamMembers.map(m => (
@@ -154,7 +154,7 @@ export default function DailyNotes() {
                 value={formData[prompt.id] || ''}
                 onChange={e => setFormData({ ...formData, [prompt.id]: e.target.value })}
                 rows={3}
-                className="w-full px-3 py-2.5 rounded-lg border border-border bg-surface text-sm focus:ring-2 focus:ring-brand-500 resize-none"
+                className="w-full px-3 py-2.5 rounded-lg border border-border bg-surface text-sm resize-none"
                 placeholder="Type your answer..."
               />
             </div>
@@ -163,7 +163,7 @@ export default function DailyNotes() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-white text-sm font-medium hover:from-brand-600 hover:to-brand-700 shadow-sm shadow-brand-200 transition-all disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gold hover:bg-gold-muted text-black font-semibold transition-all disabled:opacity-50"
             >
               {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
               Submit Note
@@ -183,7 +183,7 @@ export default function DailyNotes() {
             const entries = parseContent(note.content)
             return (
               <div key={note.id} className="bg-surface rounded-2xl border border-border overflow-hidden shadow-sm hover:shadow-md transition-all duration-200">
-                <div className="px-5 py-3 border-b border-border border-l-4 border-l-brand-500/35 flex items-center justify-between">
+                <div className="px-5 py-3 border-b border-border border-l-4 border-l-gold/30 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Calendar size={14} className="text-text-muted" />
                     <span className="text-sm font-medium">{note.note_date}</span>
@@ -208,9 +208,9 @@ export default function DailyNotes() {
 
                 {/* Manager Reply */}
                 {note.manager_reply && (
-                  <div className="px-5 py-3 bg-brand-50 border-t border-brand-100">
-                    <p className="text-xs font-semibold text-brand-700 mb-1">Manager Reply</p>
-                    <p className="text-sm text-brand-800">{note.manager_reply}</p>
+                  <div className="px-5 py-3 bg-gold/5 border-t border-gold/10">
+                    <p className="text-xs font-semibold text-gold mb-1">Manager Reply</p>
+                    <p className="text-sm text-text">{note.manager_reply}</p>
                   </div>
                 )}
 
@@ -224,12 +224,12 @@ export default function DailyNotes() {
                           value={replyText}
                           onChange={e => setReplyText(e.target.value)}
                           placeholder="Write a reply..."
-                          className="flex-1 px-3 py-2 rounded-lg border border-border text-sm focus:ring-2 focus:ring-brand-500"
+                          className="flex-1 px-3 py-2 rounded-lg border border-border text-sm"
                           autoFocus
                         />
                         <button
                           onClick={() => handleReply(note.id)}
-                          className="px-3 py-2 rounded-lg bg-brand-600 text-white text-sm hover:bg-brand-700"
+                          className="px-3 py-2 rounded-lg bg-gold hover:bg-gold-muted text-black font-semibold text-sm"
                         >
                           Send
                         </button>
@@ -243,7 +243,7 @@ export default function DailyNotes() {
                     ) : (
                       <button
                         onClick={() => setReplyingTo(note.id)}
-                        className="flex items-center gap-1.5 text-sm text-text-muted hover:text-brand-600"
+                        className="flex items-center gap-1.5 text-sm text-text-muted hover:text-gold"
                       >
                         <MessageSquare size={14} /> Reply
                       </button>

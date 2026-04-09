@@ -7,9 +7,9 @@ import {
 } from 'lucide-react'
 
 const TEMPLATE_TYPES = [
-  { value: 'daily', label: 'Daily Report', icon: FileText, color: 'bg-blue-50 text-blue-700' },
-  { value: 'weekly', label: 'Weekly Report', icon: BarChart3, color: 'bg-purple-50 text-purple-700' },
-  { value: 'checklist', label: 'Checklist', icon: CheckSquare, color: 'bg-green-50 text-green-700' },
+  { value: 'daily', label: 'Daily Report', icon: FileText, color: 'bg-sky-500/10 text-sky-400' },
+  { value: 'weekly', label: 'Weekly Report', icon: BarChart3, color: 'bg-violet-500/10 text-violet-400' },
+  { value: 'checklist', label: 'Checklist', icon: CheckSquare, color: 'bg-emerald-500/10 text-emerald-400' },
 ]
 
 const FIELD_TYPES = [
@@ -22,39 +22,55 @@ const FIELD_TYPES = [
 
 const PRESET_TEMPLATES: Omit<ReportTemplate, 'id' | 'created_at' | 'updated_at'>[] = [
   {
-    name: 'Daily Standup',
-    type: 'daily',
-    position: null,
-    is_default: false,
-    fields: [
-      { id: '1', label: 'What did you accomplish today?', type: 'textarea', required: true },
-      { id: '2', label: 'Any blockers or challenges?', type: 'textarea', required: false },
-      { id: '3', label: 'What will you work on tomorrow?', type: 'textarea', required: true },
-    ],
-  },
-  {
-    name: 'Marketing Daily Report',
-    type: 'daily',
-    position: 'marketer',
-    is_default: false,
-    fields: [
-      { id: '1', label: 'Campaigns worked on today', type: 'textarea', required: true },
-      { id: '2', label: 'Content published/scheduled', type: 'textarea', required: false },
-      { id: '3', label: 'Key metrics update', type: 'textarea', required: false },
-      { id: '4', label: 'Leads generated', type: 'number', required: false },
-      { id: '5', label: 'Tomorrow\'s priorities', type: 'textarea', required: true },
-    ],
-  },
-  {
-    name: 'Intern Daily Log',
-    type: 'daily',
+    name: 'Intern Daily Checklist',
+    type: 'checklist',
     position: 'intern',
-    is_default: false,
+    is_default: true,
     fields: [
-      { id: '1', label: 'Tasks completed', type: 'textarea', required: true },
-      { id: '2', label: 'What did you learn today?', type: 'textarea', required: true },
-      { id: '3', label: 'Questions for your supervisor', type: 'textarea', required: false },
-      { id: '4', label: 'Hours worked', type: 'number', required: true },
+      { id: '1', label: 'Submit 1 social media piece to Dropbox', type: 'checkbox', is_critical: true },
+      { id: '2', label: 'Check and respond to messages', type: 'checkbox' },
+      { id: '3', label: 'Attend standup / check-in', type: 'checkbox' },
+      { id: '4', label: 'Complete learning module', type: 'checkbox' },
+      { id: '5', label: 'Update task notes', type: 'checkbox' },
+    ],
+  },
+  {
+    name: 'Marketing / Admin Daily Checklist',
+    type: 'checklist',
+    position: 'marketing_admin',
+    is_default: true,
+    fields: [
+      { id: '1', label: 'Submit content to Dropbox', type: 'checkbox', is_critical: true },
+      { id: '2', label: 'Update and communicate team schedule', type: 'checkbox', is_critical: true },
+      { id: '3', label: 'Review analytics / metrics', type: 'checkbox' },
+      { id: '4', label: 'Manage content calendar', type: 'checkbox' },
+      { id: '5', label: 'Process communications and emails', type: 'checkbox' },
+    ],
+  },
+  {
+    name: 'Artist Development Daily Checklist',
+    type: 'checklist',
+    position: 'artist_development',
+    is_default: true,
+    fields: [
+      { id: '1', label: 'Complete client/artist follow-ups', type: 'checkbox', is_critical: true },
+      { id: '2', label: 'Log all external communications with next steps', type: 'checkbox', is_critical: true },
+      { id: '3', label: 'Update artist pipeline', type: 'checkbox' },
+      { id: '4', label: 'Coordinate release timelines', type: 'checkbox' },
+      { id: '5', label: 'Review new submissions', type: 'checkbox' },
+    ],
+  },
+  {
+    name: 'Owner Daily Checklist',
+    type: 'checklist',
+    position: 'owner',
+    is_default: true,
+    fields: [
+      { id: '1', label: 'Review team progress and submissions', type: 'checkbox', is_critical: true },
+      { id: '2', label: 'Check business health metrics', type: 'checkbox' },
+      { id: '3', label: 'Approve submitted work', type: 'checkbox' },
+      { id: '4', label: 'Handle escalations', type: 'checkbox' },
+      { id: '5', label: 'Update priorities for the team', type: 'checkbox' },
     ],
   },
   {
@@ -67,63 +83,29 @@ const PRESET_TEMPLATES: Omit<ReportTemplate, 'id' | 'created_at' | 'updated_at'>
       { id: '2', label: 'Challenges faced', type: 'textarea', required: false },
       { id: '3', label: 'Plans for next week', type: 'textarea', required: true },
       { id: '4', label: 'Total hours worked', type: 'number', required: true },
-      { id: '5', label: 'Overall satisfaction (1-10)', type: 'number', required: false },
     ],
   },
   {
     name: 'Marketing Weekly Report',
     type: 'weekly',
-    position: 'marketer',
+    position: 'marketing_admin',
     is_default: false,
     fields: [
-      { id: '1', label: 'Campaign performance summary', type: 'textarea', required: true },
-      { id: '2', label: 'Total leads generated', type: 'number', required: true },
-      { id: '3', label: 'Content pieces published', type: 'number', required: false },
-      { id: '4', label: 'Social media growth metrics', type: 'textarea', required: false },
-      { id: '5', label: 'Budget spent', type: 'number', required: false },
-      { id: '6', label: 'Next week\'s strategy', type: 'textarea', required: true },
+      { id: '1', label: 'Content pieces published', type: 'number', required: true },
+      { id: '2', label: 'Social media growth this week', type: 'textarea', required: true },
+      { id: '3', label: 'Campaign performance summary', type: 'textarea', required: false },
+      { id: '4', label: 'Next week\'s content strategy', type: 'textarea', required: true },
     ],
   },
   {
-    name: 'Daily Checklist - General',
-    type: 'checklist',
+    name: 'Daily Standup Report',
+    type: 'daily',
     position: null,
     is_default: false,
     fields: [
-      { id: '1', label: 'Check and respond to emails', type: 'checkbox' },
-      { id: '2', label: 'Review daily priorities', type: 'checkbox' },
-      { id: '3', label: 'Complete assigned tasks', type: 'checkbox' },
-      { id: '4', label: 'Update project status', type: 'checkbox' },
-      { id: '5', label: 'Submit daily report', type: 'checkbox' },
-    ],
-  },
-  {
-    name: 'Marketing Daily Checklist',
-    type: 'checklist',
-    position: 'marketer',
-    is_default: false,
-    fields: [
-      { id: '1', label: 'Check social media analytics', type: 'checkbox' },
-      { id: '2', label: 'Review and respond to comments/DMs', type: 'checkbox' },
-      { id: '3', label: 'Review content calendar', type: 'checkbox' },
-      { id: '4', label: 'Monitor active campaigns', type: 'checkbox' },
-      { id: '5', label: 'Follow up on leads', type: 'checkbox' },
-      { id: '6', label: 'Update marketing dashboard', type: 'checkbox' },
-      { id: '7', label: 'Schedule tomorrow\'s content', type: 'checkbox' },
-    ],
-  },
-  {
-    name: 'Intern Onboarding Checklist',
-    type: 'checklist',
-    position: 'intern',
-    is_default: false,
-    fields: [
-      { id: '1', label: 'Complete daily standup report', type: 'checkbox' },
-      { id: '2', label: 'Attend team meeting', type: 'checkbox' },
-      { id: '3', label: '30 min learning/training', type: 'checkbox' },
-      { id: '4', label: 'Complete assigned tasks', type: 'checkbox' },
-      { id: '5', label: 'Update project notes', type: 'checkbox' },
-      { id: '6', label: 'Ask at least one question', type: 'checkbox' },
+      { id: '1', label: 'What did you accomplish today?', type: 'textarea', required: true },
+      { id: '2', label: 'Any blockers or challenges?', type: 'textarea', required: false },
+      { id: '3', label: 'What will you work on tomorrow?', type: 'textarea', required: true },
     ],
   },
 ]
@@ -242,7 +224,7 @@ export default function Templates() {
 
   const filtered = typeFilter === 'all' ? templates : templates.filter(t => t.type === typeFilter)
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" /></div>
+  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-2 border-gold/20 border-t-gold" /></div>
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -257,7 +239,7 @@ export default function Templates() {
             <ClipboardList size={16} /> Presets
           </button>
           <button onClick={showForm ? () => { setShowForm(false); resetForm() } : openForm}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700">
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gold hover:bg-gold-muted text-black font-semibold text-sm">
             {showForm ? <X size={16} /> : <Plus size={16} />}
             {showForm ? 'Cancel' : 'New Template'}
           </button>
@@ -276,7 +258,7 @@ export default function Templates() {
                 <button
                   key={i}
                   onClick={() => usePreset(preset)}
-                  className="text-left p-4 rounded-lg border border-border hover:border-brand-300 hover:shadow-sm transition-all"
+                  className="text-left p-4 rounded-lg border border-border hover:border-gold/30 hover:shadow-sm transition-all"
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <span className={`p-1 rounded ${info.color}`}><info.icon size={14} /></span>
@@ -303,26 +285,27 @@ export default function Templates() {
             <div>
               <label className="block text-sm font-medium mb-1.5">Template Name *</label>
               <input required value={name} onChange={e => setName(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:ring-2 focus:ring-brand-500"
+                className="w-full px-3 py-2.5 rounded-lg border border-border text-sm"
                 placeholder="e.g. Daily Marketing Report" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Type</label>
               <select value={type} onChange={e => setType(e.target.value as ReportTemplate['type'])}
-                className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:ring-2 focus:ring-brand-500">
+                className="w-full px-3 py-2.5 rounded-lg border border-border text-sm">
                 {TEMPLATE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Assigned Position</label>
               <select value={position} onChange={e => setPosition(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:ring-2 focus:ring-brand-500">
+                className="w-full px-3 py-2.5 rounded-lg border border-border text-sm">
                 <option value="">All Positions</option>
+                <option value="owner">Owner / Lead Engineer</option>
+                <option value="marketing_admin">Marketing / Admin</option>
+                <option value="artist_development">Artist Development</option>
                 <option value="intern">Intern</option>
-                <option value="marketer">Marketer</option>
-                <option value="developer">Developer</option>
-                <option value="designer">Designer</option>
-                <option value="sales">Sales</option>
+                <option value="engineer">Audio Engineer</option>
+                <option value="producer">Producer</option>
               </select>
             </div>
             <div className="flex items-end">
@@ -338,7 +321,7 @@ export default function Templates() {
             <div className="flex items-center justify-between mb-3">
               <label className="text-sm font-medium">Fields ({fields.length})</label>
               <button type="button" onClick={addField}
-                className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium">
+                className="flex items-center gap-1 text-xs text-gold font-medium">
                 <Plus size={14} /> Add Field
               </button>
             </div>
@@ -356,12 +339,12 @@ export default function Templates() {
                       value={field.label}
                       onChange={e => updateField(i, { label: e.target.value })}
                       placeholder="Field label"
-                      className="sm:col-span-2 px-2.5 py-1.5 rounded border border-border text-sm focus:ring-2 focus:ring-brand-500"
+                      className="sm:col-span-2 px-2.5 py-1.5 rounded border border-border text-sm"
                     />
                     <select
                       value={field.type}
                       onChange={e => updateField(i, { type: e.target.value as TemplateField['type'] })}
-                      className="px-2.5 py-1.5 rounded border border-border text-sm focus:ring-2 focus:ring-brand-500"
+                      className="px-2.5 py-1.5 rounded border border-border text-sm"
                     >
                       {FIELD_TYPES.map(ft => <option key={ft.value} value={ft.value}>{ft.label}</option>)}
                     </select>
@@ -375,7 +358,7 @@ export default function Templates() {
                     </label>
                   )}
                   <button type="button" onClick={() => removeField(i)}
-                    className="p-1 rounded text-text-muted hover:text-red-600 hover:bg-red-50 mt-1 shrink-0">
+                    className="p-1 rounded text-text-muted hover:text-red-400 hover:bg-red-500/10 mt-1 shrink-0">
                     <X size={14} />
                   </button>
                 </div>
@@ -387,7 +370,7 @@ export default function Templates() {
             <button type="button" onClick={() => { setShowForm(false); resetForm() }}
               className="px-4 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-surface-hover">Cancel</button>
             <button type="submit" disabled={submitting}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 disabled:opacity-50">
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gold hover:bg-gold-muted text-black font-semibold text-sm disabled:opacity-50">
               {submitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               {editingTemplate ? 'Update Template' : 'Create Template'}
             </button>
@@ -398,7 +381,7 @@ export default function Templates() {
       {/* Filter tabs */}
       <div className="flex items-center gap-2">
         <button onClick={() => setTypeFilter('all')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${typeFilter === 'all' ? 'bg-brand-50 text-brand-700' : 'text-text-muted hover:bg-surface-hover'}`}>
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${typeFilter === 'all' ? 'bg-gold/10 text-gold' : 'text-text-muted hover:bg-surface-hover'}`}>
           All
         </button>
         {TEMPLATE_TYPES.map(t => (
@@ -427,7 +410,7 @@ export default function Templates() {
                       <span className={`p-1 rounded ${info.color}`}><info.icon size={14} /></span>
                       <span className="text-xs font-medium text-text-muted capitalize">{template.type}</span>
                       {template.is_default && (
-                        <span className="text-[10px] font-medium bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded">Default</span>
+                        <span className="text-[10px] font-medium bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded">Default</span>
                       )}
                     </div>
                     <h3 className="font-semibold">{template.name}</h3>
@@ -452,7 +435,7 @@ export default function Templates() {
 
                 <div className="flex items-center gap-1.5 border-t border-border pt-3">
                   <button onClick={() => handleEdit(template)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-brand-600 hover:bg-brand-50">
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-gold hover:bg-gold/10">
                     <Edit2 size={12} /> Edit
                   </button>
                   <button onClick={() => handleDuplicate(template)}
@@ -460,7 +443,7 @@ export default function Templates() {
                     <Copy size={12} /> Duplicate
                   </button>
                   <button onClick={() => handleDelete(template.id)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 ml-auto">
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-400 hover:bg-red-500/10 ml-auto">
                     <Trash2 size={12} /> Delete
                   </button>
                 </div>

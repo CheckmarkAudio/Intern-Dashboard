@@ -13,14 +13,10 @@ export default function Login() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
-  // #region agent log
-  fetch('http://127.0.0.1:7877/ingest/db881b4b-41b3-45a6-b8aa-216a512aebee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e7c691'},body:JSON.stringify({sessionId:'e7c691',location:'Login.tsx:render',message:'Login render',data:{authLoading,hasUser:!!user},timestamp:Date.now(),hypothesisId:'H2,H5'})}).catch(()=>{});
-  // #endregion
-
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-white/20 border-t-white" />
+      <div className="flex items-center justify-center h-screen bg-bg">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-gold/20 border-t-gold" />
       </div>
     )
   }
@@ -55,36 +51,36 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex bg-bg">
       {/* Left branding panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-20 left-20 w-72 h-72 rounded-full bg-white/20 blur-3xl" />
-          <div className="absolute bottom-20 right-20 w-96 h-96 rounded-full bg-white/10 blur-3xl" />
+      <div className="hidden lg:flex lg:w-1/2 bg-surface relative overflow-hidden border-r border-border">
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-20 left-20 w-72 h-72 rounded-full bg-gold/10 blur-3xl" />
+          <div className="absolute bottom-20 right-20 w-96 h-96 rounded-full bg-gold/5 blur-3xl" />
         </div>
         <div className="relative z-10 flex flex-col justify-center p-16">
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center shadow-lg">
-              <Music size={24} className="text-white" />
+            <div className="w-12 h-12 rounded-2xl bg-gold/10 border border-gold/20 flex items-center justify-center">
+              <Music size={24} className="text-gold" />
             </div>
-            <span className="text-2xl font-bold text-white tracking-tight">Checkmark Audio</span>
+            <span className="text-2xl font-bold text-text tracking-tight">Checkmark Audio</span>
           </div>
-          <h2 className="text-4xl font-bold text-white leading-tight mb-4">
-            Manage your team.<br />
-            <span className="text-brand-200">Track everything.</span>
+          <h2 className="text-4xl font-bold text-text leading-tight mb-4">
+            Your studio.<br />
+            <span className="text-gold">Your command center.</span>
           </h2>
-          <p className="text-brand-200/80 text-lg max-w-md">
-            Daily reports, lead tracking, performance reviews, and checklists — all in one place.
+          <p className="text-text-muted text-lg max-w-md">
+            Projects, sessions, pipeline, team operations, and business health — all in one place.
           </p>
-          <div className="flex gap-6 mt-12">
+          <div className="flex gap-4 mt-12">
             {[
-              { label: 'Reports', value: 'Daily & Weekly' },
-              { label: 'Pipeline', value: 'Lead Tracking' },
-              { label: 'Reviews', value: 'Performance' },
+              { label: 'Projects', value: 'Recording & Mixing' },
+              { label: 'Pipeline', value: 'Artist Development' },
+              { label: 'Growth', value: 'Social & Metrics' },
             ].map(item => (
-              <div key={item.label} className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3">
-                <p className="text-white/60 text-[10px] uppercase tracking-wider font-medium">{item.label}</p>
-                <p className="text-white text-sm font-semibold mt-0.5">{item.value}</p>
+              <div key={item.label} className="bg-white/[0.04] border border-border rounded-xl px-4 py-3">
+                <p className="text-text-light text-[10px] uppercase tracking-wider font-medium">{item.label}</p>
+                <p className="text-text text-sm font-semibold mt-0.5">{item.value}</p>
               </div>
             ))}
           </div>
@@ -92,27 +88,27 @@ export default function Login() {
       </div>
 
       {/* Right form panel */}
-      <div className="flex-1 flex items-center justify-center p-6 bg-surface-alt">
+      <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-md animate-fade-in">
           <div className="text-center mb-8 lg:hidden">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white mx-auto mb-4 shadow-lg shadow-brand-200">
-              <Music size={24} />
+            <div className="w-14 h-14 rounded-2xl bg-gold/10 border border-gold/20 flex items-center justify-center mx-auto mb-4">
+              <Music size={24} className="text-gold" />
             </div>
-            <h1 className="text-2xl font-bold">Checkmark Audio</h1>
-            <p className="text-text-muted mt-1">Team Management System</p>
+            <h1 className="text-2xl font-bold text-text">Checkmark Audio</h1>
+            <p className="text-text-muted mt-1">Command Center</p>
           </div>
 
           <div className="lg:mb-8 hidden lg:block">
-            <h1 className="text-2xl font-bold">Welcome back</h1>
+            <h1 className="text-2xl font-bold text-text">Welcome back</h1>
             <p className="text-text-muted mt-1">Sign in to your account to continue</p>
           </div>
 
-          <div className="bg-surface rounded-2xl shadow-xl shadow-black/5 border border-border p-7">
+          <div className="bg-surface rounded-2xl border border-border p-7">
             <div className="flex rounded-xl bg-surface-alt p-1 mb-6">
               <button
                 onClick={() => { setTab('signin'); setError(''); setSuccess('') }}
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition-all ${
-                  tab === 'signin' ? 'bg-surface shadow-sm text-text' : 'text-text-muted hover:text-text'
+                  tab === 'signin' ? 'bg-surface-hover text-text' : 'text-text-muted hover:text-text'
                 }`}
               >
                 <LogIn size={15} /> Sign In
@@ -120,7 +116,7 @@ export default function Login() {
               <button
                 onClick={() => { setTab('signup'); setError(''); setSuccess('') }}
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-sm font-medium transition-all ${
-                  tab === 'signup' ? 'bg-surface shadow-sm text-text' : 'text-text-muted hover:text-text'
+                  tab === 'signup' ? 'bg-surface-hover text-text' : 'text-text-muted hover:text-text'
                 }`}
               >
                 <UserPlus size={15} /> Sign Up
@@ -130,31 +126,31 @@ export default function Login() {
             <form onSubmit={handleSubmit} className="space-y-4">
               {tab === 'signup' && (
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">Full Name</label>
+                  <label className="block text-sm font-medium mb-1.5 text-text-muted">Full Name</label>
                   <input
                     type="text"
                     value={displayName}
                     onChange={e => setDisplayName(e.target.value)}
                     placeholder="Your name"
-                    className="w-full px-4 py-3 rounded-xl border border-border bg-surface text-sm transition-all"
+                    className="w-full px-4 py-3 rounded-xl border border-border text-sm transition-all"
                   />
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium mb-1.5">Email</label>
+                <label className="block text-sm font-medium mb-1.5 text-text-muted">Email</label>
                 <input
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   required
-                  className="w-full px-4 py-3 rounded-xl border border-border bg-surface text-sm transition-all"
+                  className="w-full px-4 py-3 rounded-xl border border-border text-sm transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1.5">Password</label>
+                <label className="block text-sm font-medium mb-1.5 text-text-muted">Password</label>
                 <input
                   type="password"
                   value={password}
@@ -162,17 +158,17 @@ export default function Login() {
                   placeholder="••••••••"
                   required
                   minLength={6}
-                  className="w-full px-4 py-3 rounded-xl border border-border bg-surface text-sm transition-all"
+                  className="w-full px-4 py-3 rounded-xl border border-border text-sm transition-all"
                 />
               </div>
 
               {error && (
-                <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl p-3 animate-slide-up">
+                <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl p-3 animate-slide-up">
                   {error}
                 </div>
               )}
               {success && (
-                <div className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-xl p-3 animate-slide-up">
+                <div className="text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 animate-slide-up">
                   {success}
                 </div>
               )}
@@ -180,7 +176,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-white font-semibold text-sm hover:from-brand-600 hover:to-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-brand-200 flex items-center justify-center gap-2"
+                className="w-full py-3 px-4 rounded-xl bg-gold hover:bg-gold-muted text-black font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
               >
                 {loading ? <Loader2 size={16} className="animate-spin" /> : null}
                 {tab === 'signin' ? 'Sign In' : 'Create Account'}

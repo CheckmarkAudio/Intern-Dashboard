@@ -10,12 +10,12 @@ const STATUS_OPTIONS = ['new', 'contacted', 'qualified', 'proposal', 'closed_won
 const PRIORITY_OPTIONS = ['low', 'medium', 'high'] as const
 
 const STATUS_COLORS: Record<string, string> = {
-  new: 'bg-blue-50 text-blue-700',
-  contacted: 'bg-yellow-50 text-yellow-700',
-  qualified: 'bg-purple-50 text-purple-700',
-  proposal: 'bg-indigo-50 text-indigo-700',
-  closed_won: 'bg-green-50 text-green-700',
-  closed_lost: 'bg-red-50 text-red-700',
+  new: 'bg-sky-500/10 text-sky-400',
+  contacted: 'bg-amber-500/10 text-amber-400',
+  qualified: 'bg-violet-500/10 text-violet-400',
+  proposal: 'bg-indigo-500/10 text-indigo-400',
+  closed_won: 'bg-emerald-500/10 text-emerald-400',
+  closed_lost: 'bg-red-500/10 text-red-400',
 }
 
 type LeadForm = {
@@ -104,7 +104,7 @@ export default function Leads() {
       return l.contact.toLowerCase().includes(s) || l.company.toLowerCase().includes(s) || l.email.toLowerCase().includes(s)
     })
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" /></div>
+  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-2 border-gold/20 border-t-gold" /></div>
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
@@ -115,7 +115,7 @@ export default function Leads() {
         </div>
         <button
           onClick={() => { setShowForm(!showForm); setEditingLead(null); setFormData(EMPTY_LEAD) }}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-white text-sm font-medium hover:from-brand-600 hover:to-brand-700 shadow-sm shadow-brand-200 transition-all"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gold hover:bg-gold-muted text-black font-semibold text-sm transition-all"
         >
           {showForm ? <X size={16} /> : <Plus size={16} />}
           {showForm ? 'Cancel' : 'New Lead'}
@@ -130,41 +130,41 @@ export default function Leads() {
             <div>
               <label className="block text-sm font-medium mb-1.5">Contact Name *</label>
               <input required value={formData.contact} onChange={e => setFormData({ ...formData, contact: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:ring-2 focus:ring-brand-500" placeholder="John Doe" />
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm" placeholder="John Doe" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Company</label>
               <input value={formData.company} onChange={e => setFormData({ ...formData, company: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:ring-2 focus:ring-brand-500" placeholder="Acme Inc." />
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm" placeholder="Acme Inc." />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Email</label>
               <input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:ring-2 focus:ring-brand-500" placeholder="john@example.com" />
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm" placeholder="john@example.com" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Phone</label>
               <input value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:ring-2 focus:ring-brand-500" placeholder="(555) 123-4567" />
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm" placeholder="(555) 123-4567" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Priority</label>
               <select value={formData.priority} onChange={e => setFormData({ ...formData, priority: e.target.value as Lead['priority'] })}
-                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:ring-2 focus:ring-brand-500">
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm">
                 {PRIORITY_OPTIONS.map(p => <option key={p} value={p} className="capitalize">{p}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Status</label>
               <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value as Lead['status'] })}
-                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:ring-2 focus:ring-brand-500">
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm">
                 {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Deal Amount</label>
               <input type="number" value={formData.amount ?? ''} onChange={e => setFormData({ ...formData, amount: e.target.value ? Number(e.target.value) : undefined })}
-                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:ring-2 focus:ring-brand-500" placeholder="0" />
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm" placeholder="0" />
             </div>
             <div className="flex items-end">
               <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
@@ -177,13 +177,13 @@ export default function Leads() {
           <div>
             <label className="block text-sm font-medium mb-1.5">Description</label>
             <textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })}
-              rows={3} className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:ring-2 focus:ring-brand-500 resize-none" placeholder="Notes about this lead..." />
+              rows={3} className="w-full px-3 py-2.5 rounded-xl border border-border text-sm resize-none" placeholder="Notes about this lead..." />
           </div>
           <div className="flex justify-end gap-2">
             <button type="button" onClick={() => { setShowForm(false); setEditingLead(null) }}
               className="px-4 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-surface-hover">Cancel</button>
             <button type="submit" disabled={submitting}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-white text-sm font-medium hover:from-brand-600 hover:to-brand-700 shadow-sm shadow-brand-200 transition-all disabled:opacity-50">
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gold hover:bg-gold-muted text-black font-semibold text-sm transition-all disabled:opacity-50">
               {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
               {editingLead ? 'Update Lead' : 'Add Lead'}
             </button>
@@ -196,12 +196,12 @@ export default function Leads() {
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search leads..."
-            className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-border text-sm focus:ring-2 focus:ring-brand-500" />
+            className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-border text-sm" />
         </div>
         <div className="relative">
           <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-            className="appearance-none pl-8 pr-8 py-2.5 rounded-lg border border-border text-sm focus:ring-2 focus:ring-brand-500">
+            className="appearance-none pl-8 pr-8 py-2.5 rounded-lg border border-border text-sm">
             <option value="all">All Statuses</option>
             {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
           </select>
@@ -247,7 +247,7 @@ export default function Leads() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_COLORS[lead.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_COLORS[lead.status] ?? 'bg-surface-alt text-text-muted'}`}>
                         {lead.status.replace('_', ' ')}
                       </span>
                     </td>
@@ -256,15 +256,15 @@ export default function Leads() {
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium capitalize ${
-                        lead.priority === 'high' ? 'bg-red-50 text-red-700' :
-                        lead.priority === 'medium' ? 'bg-amber-50 text-amber-700' :
-                        'bg-gray-100 text-gray-600'
+                        lead.priority === 'high' ? 'bg-red-500/10 text-red-400' :
+                        lead.priority === 'medium' ? 'bg-amber-500/10 text-amber-400' :
+                        'bg-surface-alt text-text-muted'
                       }`}>{lead.priority}</span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
-                        <button onClick={() => handleEdit(lead)} className="px-2 py-1 rounded text-xs hover:bg-brand-50 text-brand-600">Edit</button>
-                        <button onClick={() => handleDelete(lead.id)} className="px-2 py-1 rounded text-xs hover:bg-red-50 text-red-600">Del</button>
+                        <button onClick={() => handleEdit(lead)} className="px-2 py-1 rounded text-xs hover:bg-gold/10 text-gold">Edit</button>
+                        <button onClick={() => handleDelete(lead.id)} className="px-2 py-1 rounded text-xs hover:bg-red-500/10 text-red-400">Del</button>
                       </div>
                     </td>
                   </tr>

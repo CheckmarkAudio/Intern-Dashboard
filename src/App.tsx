@@ -6,11 +6,15 @@ import Dashboard from './pages/Dashboard'
 import DailyChecklist from './pages/DailyChecklist'
 import WeeklyChecklist from './pages/WeeklyChecklist'
 import DailyNotes from './pages/DailyNotes'
-import Leads from './pages/Leads'
 import Schedule from './pages/Schedule'
-import Reviews from './pages/Reviews'
+import Projects from './pages/Projects'
+import Sessions from './pages/Sessions'
+import Content from './pages/Content'
+import Pipeline from './pages/Pipeline'
+import Education from './pages/Education'
 import TeamManager from './pages/admin/TeamManager'
 import Templates from './pages/admin/Templates'
+import BusinessHealth from './pages/admin/BusinessHealth'
 import AdminSettings from './pages/admin/AdminSettings'
 
 export default function App() {
@@ -28,9 +32,12 @@ export default function App() {
         <Route path="daily" element={<DailyChecklist />} />
         <Route path="weekly" element={<WeeklyChecklist />} />
         <Route path="notes" element={<DailyNotes />} />
-        <Route path="leads" element={<Leads />} />
         <Route path="schedule" element={<Schedule />} />
-        <Route path="reviews" element={<Reviews />} />
+        <Route path="projects" element={<Projects />} />
+        <Route path="sessions" element={<Sessions />} />
+        <Route path="content" element={<Content />} />
+        <Route path="pipeline" element={<Pipeline />} />
+        <Route path="education" element={<Education />} />
         <Route
           path="admin/team"
           element={<ProtectedRoute adminOnly><TeamManager /></ProtectedRoute>}
@@ -38,6 +45,10 @@ export default function App() {
         <Route
           path="admin/templates"
           element={<ProtectedRoute adminOnly><Templates /></ProtectedRoute>}
+        />
+        <Route
+          path="admin/health"
+          element={<ProtectedRoute adminOnly><BusinessHealth /></ProtectedRoute>}
         />
         <Route
           path="admin/settings"

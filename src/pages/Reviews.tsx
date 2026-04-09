@@ -101,14 +101,14 @@ export default function Reviews() {
         >
           <Star
             size={editable ? 20 : 16}
-            className={n <= score ? 'text-amber-400 fill-amber-400' : 'text-gray-200'}
+            className={n <= score ? 'text-amber-400 fill-amber-400' : 'text-text-light'}
           />
         </button>
       ))}
     </div>
   )
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" /></div>
+  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-2 border-gold/20 border-t-gold" /></div>
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
@@ -119,7 +119,7 @@ export default function Reviews() {
         </div>
         {isAdmin && (
           <button onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-white text-sm font-medium hover:from-brand-600 hover:to-brand-700 shadow-sm shadow-brand-200 transition-all">
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gold hover:bg-gold-muted text-black font-semibold text-sm transition-all">
             {showForm ? <X size={16} /> : <Plus size={16} />}
             {showForm ? 'Cancel' : 'New Review'}
           </button>
@@ -133,7 +133,7 @@ export default function Reviews() {
           <div>
             <label className="block text-sm font-medium mb-1.5">Team Member</label>
             <select required value={selectedMember} onChange={e => setSelectedMember(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:ring-2 focus:ring-brand-500">
+              className="w-full px-3 py-2.5 rounded-lg border border-border text-sm">
               <option value="">Select a team member...</option>
               {teamMembers.filter(m => m.role !== 'admin').map(m => (
                 <option key={m.id} value={m.id}>{m.display_name} ({m.position})</option>
@@ -154,12 +154,12 @@ export default function Reviews() {
           <div>
             <label className="block text-sm font-medium mb-1.5">Feedback</label>
             <textarea value={feedback} onChange={e => setFeedback(e.target.value)} rows={4}
-              className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:ring-2 focus:ring-brand-500 resize-none"
+              className="w-full px-3 py-2.5 rounded-lg border border-border text-sm resize-none"
               placeholder="Overall feedback and areas for growth..." />
           </div>
           <div className="flex justify-end">
             <button type="submit" disabled={submitting}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-white text-sm font-medium hover:from-brand-600 hover:to-brand-700 shadow-sm shadow-brand-200 transition-all disabled:opacity-50">
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gold hover:bg-gold-muted text-black font-semibold text-sm transition-all disabled:opacity-50">
               {submitting ? <Loader2 size={16} className="animate-spin" /> : <Star size={16} />}
               Submit Review
             </button>
@@ -180,7 +180,7 @@ export default function Reviews() {
               <div key={review.id} className="bg-surface rounded-2xl border border-border overflow-hidden shadow-sm hover:shadow-md transition-all duration-200">
                 <div className="px-5 py-3 bg-surface-alt border-b border-border flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-semibold">
+                    <div className="w-8 h-8 rounded-full bg-gold/15 text-gold flex items-center justify-center text-xs font-semibold">
                       <User size={14} />
                     </div>
                     <div>

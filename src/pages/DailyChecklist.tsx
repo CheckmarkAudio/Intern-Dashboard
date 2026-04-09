@@ -28,7 +28,7 @@ export default function DailyChecklist() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-gold/20 border-t-gold" />
       </div>
     )
   }
@@ -67,7 +67,7 @@ export default function DailyChecklist() {
       <div className="bg-surface rounded-2xl border border-border p-5 shadow-sm">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium flex items-center gap-2">
-            <ListChecks size={16} className="text-brand-500" />
+            <ListChecks size={16} className="text-gold" />
             Overall Progress
           </span>
           <span className="text-sm font-bold">{completedCount}/{totalCount}</span>
@@ -77,12 +77,12 @@ export default function DailyChecklist() {
             className="h-full rounded-full transition-all duration-500"
             style={{
               width: `${percentage}%`,
-              backgroundColor: percentage === 100 ? '#10b981' : percentage > 50 ? '#3b82f6' : '#f59e0b',
+              backgroundColor: percentage === 100 ? '#10b981' : percentage > 50 ? '#C9A84C' : '#f59e0b',
             }}
           />
         </div>
         {percentage === 100 && totalCount > 0 && (
-          <p className="text-sm text-emerald-600 font-medium mt-2">All tasks completed!</p>
+          <p className="text-sm text-emerald-400 font-medium mt-2">All tasks completed!</p>
         )}
       </div>
 
@@ -151,11 +151,11 @@ function CategoryList({
                     <div
                       className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
                         item.is_completed
-                          ? 'bg-brand-500 border-brand-500'
-                          : 'border-slate-300 group-hover:border-brand-400'
+                          ? 'bg-gold border-gold'
+                          : 'border-text-light group-hover:border-gold'
                       }`}
                     >
-                      {item.is_completed && <Check size={14} className="text-white" />}
+                      {item.is_completed && <Check size={14} className="text-black" />}
                     </div>
                     <span
                       className={`text-sm transition-all ${

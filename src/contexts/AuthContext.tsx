@@ -24,7 +24,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   const fetchProfile = async (userId: string, email?: string) => {
-    // Try matching by id first (normal signup flow)
     const { data } = await supabase
       .from('intern_users')
       .select('*')
@@ -32,7 +31,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .maybeSingle()
     if (data) { setProfile(data as TeamMember); return }
 
-    // Fallback: match by email (for members created via TeamManager with a random id)
     if (email) {
       const { data: emailMatch } = await supabase
         .from('intern_users')
@@ -40,7 +38,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('email', email)
         .maybeSingle()
       if (emailMatch) {
-        // Link this auth user to the existing profile row
         await supabase
           .from('intern_users')
           .update({ id: userId })
@@ -55,28 +52,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7877/ingest/db881b4b-41b3-45a6-b8aa-216a512aebee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e7c691'},body:JSON.stringify({sessionId:'e7c691',location:'AuthContext.tsx:57',message:'getSession starting',data:{},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-    // #endregion
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      // #region agent log
-      fetch('http://127.0.0.1:7877/ingest/db881b4b-41b3-45a6-b8aa-216a512aebee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e7c691'},body:JSON.stringify({sessionId:'e7c691',location:'AuthContext.tsx:60',message:'getSession resolved',data:{hasSession:!!session,userId:session?.user?.id?.slice(0,8)},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) await fetchProfile(session.user.id, session.user.email)
       setLoading(false)
-    }).catch((err: unknown) => {
-      // #region agent log
-      fetch('http://127.0.0.1:7877/ingest/db881b4b-41b3-45a6-b8aa-216a512aebee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e7c691'},body:JSON.stringify({sessionId:'e7c691',location:'AuthContext.tsx:68',message:'getSession ERROR',data:{error:String(err)},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
+    }).catch(() => {
       setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      // #region agent log
-      fetch('http://127.0.0.1:7877/ingest/db881b4b-41b3-45a6-b8aa-216a512aebee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e7c691'},body:JSON.stringify({sessionId:'e7c691',location:'AuthContext.tsx:74',message:'onAuthStateChange',data:{event:_event,hasSession:!!session,userId:session?.user?.id?.slice(0,8)},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
@@ -91,13 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signIn = async (email: string, password: string) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7877/ingest/db881b4b-41b3-45a6-b8aa-216a512aebee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e7c691'},body:JSON.stringify({sessionId:'e7c691',location:'AuthContext.tsx:signIn',message:'signIn called',data:{email},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-    // #endregion
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    // #region agent log
-    fetch('http://127.0.0.1:7877/ingest/db881b4b-41b3-45a6-b8aa-216a512aebee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e7c691'},body:JSON.stringify({sessionId:'e7c691',location:'AuthContext.tsx:signIn:result',message:'signIn result',data:{hasError:!!error,errorMsg:error?.message},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-    // #endregion
     return { error: error as Error | null }
   }
 
@@ -106,7 +85,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) return { error: error as Error | null }
 
     if (data.user) {
-      // Check if a row already exists for this email (admin-created via TeamManager)
       const { data: existing } = await supabase
         .from('intern_users')
         .select('id')
@@ -114,7 +92,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle()
 
       if (existing) {
-        // Link existing row to this auth user
         await supabase
           .from('intern_users')
           .update({ id: data.user.id, display_name: displayName })

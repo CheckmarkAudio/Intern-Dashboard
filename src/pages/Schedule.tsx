@@ -7,13 +7,13 @@ import { Calendar, Plus, X, Save, Loader2, Edit2, Trash2, CheckSquare, Square } 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
 const DAY_COLORS = [
-  'bg-blue-50 border-blue-200',
-  'bg-purple-50 border-purple-200',
-  'bg-green-50 border-green-200',
-  'bg-amber-50 border-amber-200',
-  'bg-pink-50 border-pink-200',
-  'bg-cyan-50 border-cyan-200',
-  'bg-gray-50 border-gray-200',
+  'bg-surface border-border',
+  'bg-surface border-border',
+  'bg-surface border-border',
+  'bg-surface border-border',
+  'bg-surface border-border',
+  'bg-surface border-border',
+  'bg-surface border-border',
 ]
 
 interface FocusTask {
@@ -61,7 +61,7 @@ function TodayFocus({ profileId }: { profileId?: string }) {
     <div className="bg-surface rounded-2xl border border-border p-5 shadow-sm animate-slide-up mb-6">
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-semibold text-sm flex items-center gap-2">
-          <Calendar size={16} className="text-brand-500" />
+          <Calendar size={16} className="text-gold" />
           Today's Focus
         </h2>
         {tasks.length > 0 && (
@@ -79,7 +79,7 @@ function TodayFocus({ profileId }: { profileId?: string }) {
               className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-alt/50 transition-colors text-left group"
             >
               {task.done ? (
-                <CheckSquare size={18} className="text-brand-500 shrink-0" />
+                <CheckSquare size={18} className="text-gold shrink-0" />
               ) : (
                 <Square size={18} className="text-text-light group-hover:text-text-muted shrink-0 transition-colors" />
               )}
@@ -155,7 +155,7 @@ export default function Schedule() {
     entries: schedules.filter(s => s.day_of_week === i),
   }))
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" /></div>
+  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-2 border-gold/20 border-t-gold" /></div>
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
@@ -165,7 +165,7 @@ export default function Schedule() {
           <p className="text-text-muted mt-1">Focus areas for each day</p>
         </div>
         <button onClick={() => setShowAdd(!showAdd)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 text-white text-sm font-medium hover:from-brand-600 hover:to-brand-700 shadow-sm shadow-brand-200 transition-all">
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gold hover:bg-gold-muted text-black font-semibold transition-all">
           {showAdd ? <X size={16} /> : <Plus size={16} />}
           {showAdd ? 'Cancel' : 'Add Entry'}
         </button>
@@ -180,19 +180,19 @@ export default function Schedule() {
             <div>
               <label className="block text-sm font-medium mb-1.5">Day of Week</label>
               <select value={newDay} onChange={e => setNewDay(Number(e.target.value))}
-                className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:ring-2 focus:ring-brand-500">
+                className="w-full px-3 py-2.5 rounded-lg border border-border text-sm">
                 {DAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Focus Areas (comma-separated)</label>
               <input value={newAreas} onChange={e => setNewAreas(e.target.value)} placeholder="e.g. Content creation, SEO, Outreach"
-                className="w-full px-3 py-2.5 rounded-lg border border-border text-sm focus:ring-2 focus:ring-brand-500" />
+                className="w-full px-3 py-2.5 rounded-lg border border-border text-sm" />
             </div>
           </div>
           <div className="flex justify-end">
             <button onClick={handleAdd} disabled={saving}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 disabled:opacity-50">
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gold hover:bg-gold-muted text-black font-semibold text-sm disabled:opacity-50">
               {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save
             </button>
           </div>
@@ -216,13 +216,13 @@ export default function Schedule() {
             ) : (
               <div className="space-y-2">
                 {entries.map((entry, i) => (
-                  <div key={entry.id} className="flex items-center gap-2 bg-white/60 rounded-lg px-3 py-2">
+                  <div key={entry.id} className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2">
                     {editing === i && entry.day_of_week === index ? (
                       <div className="flex-1 flex items-center gap-2">
                         <input value={editAreas} onChange={e => setEditAreas(e.target.value)}
-                          className="flex-1 px-2 py-1 rounded border border-border text-sm focus:ring-2 focus:ring-brand-500" />
+                          className="flex-1 px-2 py-1 rounded border border-border text-sm" />
                         <button onClick={() => handleUpdate(entry.id)} disabled={saving}
-                          className="p-1 rounded text-brand-600 hover:bg-brand-50">
+                          className="p-1 rounded text-gold hover:bg-gold/10">
                           <Save size={14} />
                         </button>
                         <button onClick={() => setEditing(null)} className="p-1 rounded text-text-muted hover:bg-surface-hover">
@@ -233,13 +233,13 @@ export default function Schedule() {
                       <>
                         <div className="flex-1 flex flex-wrap gap-1.5">
                           {(entry.focus_areas || []).map((area, ai) => (
-                            <span key={ai} className="px-2 py-0.5 rounded-full bg-white text-xs font-medium border border-border">
+                            <span key={ai} className="px-2 py-0.5 rounded-full bg-surface-alt text-xs font-medium border border-border">
                               {area}
                             </span>
                           ))}
                         </div>
                         <button onClick={() => { setEditing(i); setEditAreas((entry.focus_areas || []).join(', ')) }}
-                          className="p-1 rounded text-text-muted hover:text-brand-600 hover:bg-brand-50">
+                          className="p-1 rounded text-text-muted hover:text-gold hover:bg-gold/10">
                           <Edit2 size={14} />
                         </button>
                         <button onClick={() => handleDelete(entry.id)}

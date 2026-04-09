@@ -69,6 +69,7 @@ export interface ChecklistItem {
   is_completed: boolean
   completed_at: string | null
   sort_order: number
+  is_critical?: boolean
 }
 
 export interface ScheduleTemplate {
@@ -106,4 +107,92 @@ export interface TemplateField {
   required?: boolean
   options?: string[]
   placeholder?: string
+  is_critical?: boolean
+}
+
+// --- New types for the expanded system ---
+
+export interface TaskAssignment {
+  id: string
+  template_id: string
+  intern_id: string | null
+  position: string | null
+  is_active: boolean
+  assigned_by: string | null
+  created_at: string
+}
+
+export interface PlatformMetric {
+  id: string
+  platform: 'instagram' | 'tiktok' | 'youtube'
+  metric_date: string
+  follower_count: number
+  entered_by: string | null
+  created_at: string
+}
+
+export interface DeliverableSubmission {
+  id: string
+  intern_id: string
+  submission_date: string
+  submission_type: string
+  dropbox_url: string | null
+  platform_tag: string | null
+  notes: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
+  created_at: string
+}
+
+export interface Project {
+  id: string
+  name: string
+  client_name: string | null
+  project_type: 'recording' | 'mixing' | 'mastering' | 'artist_dev' | 'education' | 'internal'
+  status: 'active' | 'paused' | 'completed' | 'archived'
+  assigned_to: string | null
+  notes: string | null
+  due_date: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Session {
+  id: string
+  project_id: string | null
+  client_name: string | null
+  session_date: string
+  start_time: string
+  end_time: string
+  session_type: 'recording' | 'mixing' | 'lesson' | 'meeting'
+  status: 'confirmed' | 'pending' | 'cancelled'
+  room: string | null
+  notes: string | null
+  created_by: string | null
+  created_at: string
+}
+
+export interface ArtistPipelineEntry {
+  id: string
+  artist_name: string
+  contact_email: string | null
+  contact_phone: string | null
+  stage: 'inquiry' | 'onboarding' | 'active' | 'release_support' | 'alumni'
+  assigned_to: string | null
+  notes: string | null
+  next_followup: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface EducationStudent {
+  id: string
+  student_name: string
+  contact_email: string | null
+  instrument: string | null
+  level: string | null
+  status: 'active' | 'paused' | 'completed'
+  assigned_to: string | null
+  notes: string | null
+  created_at: string
 }

@@ -1,31 +1,38 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-50: #eef2ff;
-  --color-brand-100: #e0e7ff;
-  --color-brand-200: #c7d2fe;
-  --color-brand-300: #a5b4fc;
-  --color-brand-400: #818cf8;
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
-  --color-brand-700: #4338ca;
-  --color-brand-800: #3730a3;
-  --color-brand-900: #312e81;
-  --color-brand-950: #1e1b4b;
+  --color-brand-50: #fdf8ec;
+  --color-brand-100: #f9edd0;
+  --color-brand-200: #f0d89e;
+  --color-brand-300: #e4be65;
+  --color-brand-400: #d4a63e;
+  --color-brand-500: #C9A84C;
+  --color-brand-600: #A8893D;
+  --color-brand-700: #8a6e2f;
+  --color-brand-800: #6b5524;
+  --color-brand-900: #4a3b19;
+  --color-brand-950: #2d2410;
 
-  --color-surface: #ffffff;
-  --color-surface-alt: #f8fafc;
-  --color-surface-hover: #f1f5f9;
-  --color-border: #e2e8f0;
-  --color-text: #0f172a;
-  --color-text-muted: #64748b;
-  --color-text-light: #94a3b8;
+  --color-gold: #C9A84C;
+  --color-gold-muted: #A8893D;
+  --color-gold-dim: #8a6e2f;
+
+  --color-bg: #0A0A0A;
+  --color-surface: #141414;
+  --color-surface-alt: #1C1C1C;
+  --color-surface-hover: #242424;
+  --color-border: #2A2A2A;
+  --color-border-light: #333333;
+  --color-text: #F5F5F5;
+  --color-text-muted: #999999;
+  --color-text-light: #666666;
 
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 
   --animate-fade-in: fade-in 0.3s ease-out;
   --animate-slide-up: slide-up 0.3s ease-out;
   --animate-slide-in: slide-in 0.2s ease-out;
+  --animate-pulse-gold: pulse-gold 2s ease-in-out infinite;
 }
 
 @keyframes fade-in {
@@ -43,8 +50,13 @@
   to { opacity: 1; transform: translateX(0); }
 }
 
+@keyframes pulse-gold {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 168, 76, 0.3); }
+  50% { box-shadow: 0 0 0 8px rgba(201, 168, 76, 0); }
+}
+
 body {
-  background-color: var(--color-surface-alt);
+  background-color: var(--color-bg);
   font-family: var(--font-sans);
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
@@ -53,15 +65,21 @@ body {
 @layer base {
   input, select, textarea {
     outline: none;
+    background-color: var(--color-surface);
+    color: var(--color-text);
   }
   input:focus, select:focus, textarea:focus {
-    box-shadow: 0 0 0 2px var(--color-brand-200);
-    border-color: var(--color-brand-400);
+    box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.3);
+    border-color: var(--color-gold);
+  }
+
+  input::placeholder, textarea::placeholder {
+    color: var(--color-text-light);
   }
 
   ::selection {
-    background-color: var(--color-brand-100);
-    color: var(--color-brand-900);
+    background-color: rgba(201, 168, 76, 0.3);
+    color: var(--color-text);
   }
 
   ::-webkit-scrollbar {
@@ -81,7 +99,7 @@ body {
 
 @layer utilities {
   .glass {
-    background: rgba(255, 255, 255, 0.8);
+    background: rgba(20, 20, 20, 0.8);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
