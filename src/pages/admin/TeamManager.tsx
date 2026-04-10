@@ -4,7 +4,7 @@ import { useToast } from '../../components/Toast'
 import type { TeamMember } from '../../types'
 import {
   Users, Plus, X, Loader2, Edit2, Trash2, Search, Shield, UserCheck,
-  Mail, Phone, Calendar as CalendarIcon, Save,
+  Mail, Phone, Calendar as CalendarIcon, Save, ChevronRight,
 } from 'lucide-react'
 
 const POSITIONS = [
@@ -19,6 +19,7 @@ const POSITIONS = [
 type MemberForm = {
   display_name: string; email: string; role: 'admin' | 'member'
   position: string; phone: string; start_date: string; status: 'active' | 'inactive'
+  managed_by: string
 }
 
 const EMPTY_MEMBER: MemberForm = {
@@ -29,6 +30,7 @@ const EMPTY_MEMBER: MemberForm = {
   phone: '',
   start_date: '',
   status: 'active',
+  managed_by: '',
 }
 
 export default function TeamManager() {
@@ -65,6 +67,7 @@ export default function TeamManager() {
         phone: formData.phone,
         start_date: formData.start_date || null,
         status: formData.status,
+        managed_by: formData.managed_by || null,
       }).eq('id', editingMember.id)
       if (error) toast('Failed to update member', 'error')
       else toast('Member updated')
@@ -78,6 +81,7 @@ export default function TeamManager() {
         phone: formData.phone || null,
         start_date: formData.start_date || null,
         status: formData.status,
+        managed_by: formData.managed_by || null,
       })
       if (error) toast('Failed to add member', 'error')
       else toast('Member added')
@@ -102,6 +106,7 @@ export default function TeamManager() {
       phone: member.phone ?? '',
       start_date: member.start_date ?? '',
       status: (member.status ?? 'active') as 'active' | 'inactive',
+      managed_by: member.managed_by ?? '',
     })
     if (!knownPosition) setCustomPosition(member.position ?? '')
     setShowForm(true)
@@ -136,6 +141,30 @@ export default function TeamManager() {
     return POSITIONS.find(p => p.value === pos)?.label ?? pos
   }
 
+  const getManagerName = (managedBy: string | undefined) => {
+    if (!managedBy) return null
+    return members.find(m => m.id === managedBy)?.display_name ?? null
+  }
+
+  const getReportChain = (member: TeamMember): string[] => {
+    const chain: string[] = []
+    let current = member.managed_by
+    const visited = new Set<string>()
+    while (current && !visited.has(current)) {
+      visited.add(current)
+      const mgr = members.find(m => m.id === current)
+      if (mgr) {
+        chain.push(mgr.display_name)
+        current = mgr.managed_by
+      } else {
+        break
+      }
+    }
+    return chain
+  }
+
+  const adminsAndOwners = members.filter(m => m.role === 'admin' || m.position === 'owner')
+
   const filtered = members
     .filter(m => positionFilter === 'all' || m.position === positionFilter)
     .filter(m => {
@@ -157,7 +186,7 @@ export default function TeamManager() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Team Manager</h1>
-          <p className="text-text-muted mt-1">Manage team members, roles, and positions</p>
+          <p className="text-text-muted mt-1">Manage team members, roles, positions, and reporting structure</p>
         </div>
         <button onClick={() => { setShowForm(!showForm); setEditingMember(null); setFormData(EMPTY_MEMBER) }}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gold hover:bg-gold-muted text-black text-sm font-semibold transition-all">
@@ -227,6 +256,18 @@ export default function TeamManager() {
               </select>
             </div>
             <div>
+              <label className="block text-sm font-medium mb-1.5 text-text-muted">Reports To</label>
+              <select value={formData.managed_by} onChange={e => setFormData({ ...formData, managed_by: e.target.value })}
+                className="w-full px-3 py-2.5 rounded-lg border border-border text-sm">
+                <option value="">No Manager (Top Level)</option>
+                {adminsAndOwners
+                  .filter(m => m.id !== editingMember?.id)
+                  .map(m => (
+                    <option key={m.id} value={m.id}>{m.display_name} ({getPositionLabel(m.position ?? 'intern')})</option>
+                  ))}
+              </select>
+            </div>
+            <div>
               <label className="block text-sm font-medium mb-1.5 text-text-muted">Phone</label>
               <input value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })}
                 className="w-full px-3 py-2.5 rounded-lg border border-border text-sm" placeholder="(555) 123-4567" />
@@ -269,55 +310,78 @@ export default function TeamManager() {
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map(member => (
-            <div key={member.id} className="bg-surface rounded-xl border border-border p-5 hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-full bg-gold/15 text-gold flex items-center justify-center text-sm font-bold shrink-0">
-                    {member.display_name?.charAt(0)?.toUpperCase() ?? '?'}
+          {filtered.map(member => {
+            const managerName = getManagerName(member.managed_by)
+            const chain = getReportChain(member)
+            return (
+              <div key={member.id} className="bg-surface rounded-xl border border-border p-5 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-gold/15 text-gold flex items-center justify-center text-sm font-bold shrink-0">
+                      {member.display_name?.charAt(0)?.toUpperCase() ?? '?'}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-sm">{member.display_name}</h3>
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium mt-0.5 ${getPositionStyle(member.position ?? 'intern')}`}>
+                        {getPositionLabel(member.position ?? 'intern')}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-sm">{member.display_name}</h3>
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium mt-0.5 ${getPositionStyle(member.position ?? 'intern')}`}>
-                      {getPositionLabel(member.position ?? 'intern')}
-                    </span>
-                  </div>
+                  <span className={`w-2.5 h-2.5 rounded-full mt-1 ${member.status === 'active' ? 'bg-emerald-400' : 'bg-text-light'}`} />
                 </div>
-                <span className={`w-2.5 h-2.5 rounded-full mt-1 ${member.status === 'active' ? 'bg-emerald-400' : 'bg-text-light'}`} />
-              </div>
 
-              <div className="space-y-1.5 text-xs text-text-muted mb-4">
-                <p className="flex items-center gap-1.5"><Mail size={12} /> {member.email}</p>
-                {member.phone && <p className="flex items-center gap-1.5"><Phone size={12} /> {member.phone}</p>}
-                {member.start_date && <p className="flex items-center gap-1.5"><CalendarIcon size={12} /> Started {member.start_date}</p>}
-                <p className="flex items-center gap-1.5">
-                  {member.role === 'admin' ? <Shield size={12} className="text-gold" /> : <UserCheck size={12} />}
-                  <span className="capitalize">{member.role}</span>
-                </p>
-              </div>
+                <div className="space-y-1.5 text-xs text-text-muted mb-4">
+                  <p className="flex items-center gap-1.5"><Mail size={12} /> {member.email}</p>
+                  {member.phone && <p className="flex items-center gap-1.5"><Phone size={12} /> {member.phone}</p>}
+                  {member.start_date && <p className="flex items-center gap-1.5"><CalendarIcon size={12} /> Started {member.start_date}</p>}
+                  <p className="flex items-center gap-1.5">
+                    {member.role === 'admin' ? <Shield size={12} className="text-gold" /> : <UserCheck size={12} />}
+                    <span className="capitalize">{member.role}</span>
+                  </p>
+                  {managerName && (
+                    <div className="flex items-center gap-1 pt-1">
+                      <Users size={12} className="text-violet-400 shrink-0" />
+                      <span className="text-text-light">Reports to</span>
+                      <span className="font-medium text-text">{managerName}</span>
+                    </div>
+                  )}
+                  {chain.length > 1 && (
+                    <div className="flex items-center gap-0.5 flex-wrap pl-4">
+                      {chain.reverse().map((name, i) => (
+                        <span key={i} className="flex items-center gap-0.5 text-[10px] text-text-light">
+                          {i > 0 && <ChevronRight size={8} />}
+                          {name}
+                        </span>
+                      ))}
+                      <ChevronRight size={8} className="text-text-light" />
+                      <span className="text-[10px] text-gold font-medium">{member.display_name}</span>
+                    </div>
+                  )}
+                </div>
 
-              <div className="flex items-center gap-1.5 border-t border-border pt-3">
-                <button onClick={() => handleEdit(member)}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-gold hover:bg-gold/10 transition-colors">
-                  <Edit2 size={12} /> Edit
-                </button>
-                <button onClick={() => toggleRole(member)}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-amber-400 hover:bg-amber-500/10 transition-colors">
-                  <Shield size={12} /> {member.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
-                </button>
-                <button onClick={() => toggleStatus(member)}
-                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    member.status === 'active' ? 'text-text-muted hover:bg-surface-hover' : 'text-emerald-400 hover:bg-emerald-500/10'
-                  }`}>
-                  {member.status === 'active' ? 'Deactivate' : 'Activate'}
-                </button>
-                <button onClick={() => handleDelete(member.id)}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors ml-auto">
-                  <Trash2 size={12} />
-                </button>
+                <div className="flex items-center gap-1.5 border-t border-border pt-3">
+                  <button onClick={() => handleEdit(member)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-gold hover:bg-gold/10 transition-colors">
+                    <Edit2 size={12} /> Edit
+                  </button>
+                  <button onClick={() => toggleRole(member)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-amber-400 hover:bg-amber-500/10 transition-colors">
+                    <Shield size={12} /> {member.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
+                  </button>
+                  <button onClick={() => toggleStatus(member)}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      member.status === 'active' ? 'text-text-muted hover:bg-surface-hover' : 'text-emerald-400 hover:bg-emerald-500/10'
+                    }`}>
+                    {member.status === 'active' ? 'Deactivate' : 'Activate'}
+                  </button>
+                  <button onClick={() => handleDelete(member.id)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors ml-auto">
+                    <Trash2 size={12} />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

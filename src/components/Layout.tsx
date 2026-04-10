@@ -5,20 +5,25 @@ import {
   LayoutDashboard, Users, Calendar, Settings,
   LogOut, Menu, X, ChevronDown, ClipboardList, CheckSquare,
   FolderKanban, Mic, GitBranch, GraduationCap, BarChart3, Pencil,
+  Target, Star, UsersRound,
 } from 'lucide-react'
 
 const memberLinks = [
   { to: '/', icon: LayoutDashboard, label: 'Today' },
+  { to: '/kpis', icon: Target, label: 'My KPIs' },
   { to: '/projects', icon: FolderKanban, label: 'Projects' },
   { to: '/sessions', icon: Mic, label: 'Sessions' },
   { to: '/content', icon: Pencil, label: 'Content' },
   { to: '/pipeline', icon: GitBranch, label: 'Pipeline' },
   { to: '/education', icon: GraduationCap, label: 'Education' },
   { to: '/weekly', icon: CheckSquare, label: 'Weekly Review' },
+  { to: '/reviews', icon: Star, label: 'Reviews' },
 ]
 
 const adminLinks = [
-  { to: '/admin/team', icon: Users, label: 'Team & Tasks' },
+  { to: '/admin/my-team', icon: UsersRound, label: 'My Team' },
+  { to: '/admin/team', icon: Users, label: 'Team Manager' },
+  { to: '/admin/templates', icon: ClipboardList, label: 'Templates' },
   { to: '/admin/health', icon: BarChart3, label: 'Business Health' },
   { to: '/admin/settings', icon: Settings, label: 'Settings' },
 ]

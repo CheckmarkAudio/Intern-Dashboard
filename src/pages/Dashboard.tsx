@@ -3,13 +3,27 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useChecklist } from '../hooks/useChecklist'
 import { supabase } from '../lib/supabase'
-import type { DailyNote, DeliverableSubmission, TeamMember } from '../types'
+import type { DailyNote, DeliverableSubmission, TeamMember, MemberKPI, MemberKPIEntry } from '../types'
 import MustDoCard from '../components/MustDoCard'
 import SubmissionModal from '../components/SubmissionModal'
 import {
-  Check, ChevronLeft, ChevronRight, FileText, Flame,
-  ListChecks, Mic, ArrowRight,
+  AreaChart, Area, ResponsiveContainer,
+} from 'recharts'
+import {
+  Check, FileText, Flame,
+  ListChecks, Mic, ArrowRight, Target, TrendingUp, TrendingDown, Minus,
 } from 'lucide-react'
+
+function getKPITrend(entries: MemberKPIEntry[]): 'up' | 'down' | 'flat' {
+  if (entries.length < 2) return 'flat'
+  const sorted = [...entries].sort((a, b) => a.entry_date.localeCompare(b.entry_date))
+  const recent = sorted.slice(-5)
+  const first = recent[0].value
+  const last = recent[recent.length - 1].value
+  if (last > first) return 'up'
+  if (last < first) return 'down'
+  return 'flat'
+}
 
 export default function Dashboard() {
   const { profile, isAdmin } = useAuth()
@@ -21,6 +35,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [mustDoKey, setMustDoKey] = useState(0)
 
+  const [primaryKpi, setPrimaryKpi] = useState<MemberKPI | null>(null)
+  const [kpiEntries, setKpiEntries] = useState<MemberKPIEntry[]>([])
+
   const daily = useChecklist('daily', new Date())
 
   useEffect(() => { loadData() }, [profile])
@@ -30,12 +47,25 @@ export default function Dashboard() {
     const today = new Date().toISOString().split('T')[0]
 
     try {
-      const [noteRes, sessRes] = await Promise.all([
+      const [noteRes, sessRes, kpisRes] = await Promise.all([
         supabase.from('intern_daily_notes').select('*').eq('intern_id', profile.id).eq('note_date', today).maybeSingle(),
         supabase.from('sessions').select('*').eq('session_date', today).order('start_time'),
+        supabase.from('member_kpis').select('*').eq('intern_id', profile.id).limit(1),
       ])
       if (noteRes.data) setTodayNote(noteRes.data as DailyNote)
       if (sessRes.data) setTodaySessions(sessRes.data)
+
+      if (kpisRes.data && kpisRes.data.length > 0) {
+        const kpi = kpisRes.data[0] as MemberKPI
+        setPrimaryKpi(kpi)
+        const { data: eData } = await supabase
+          .from('member_kpi_entries')
+          .select('*')
+          .eq('kpi_id', kpi.id)
+          .order('entry_date')
+          .limit(30)
+        if (eData) setKpiEntries(eData as MemberKPIEntry[])
+      }
 
       if (isAdmin) {
         const { data: subs } = await supabase
@@ -89,6 +119,10 @@ export default function Dashboard() {
     loadData()
   }
 
+  const kpiTrend = kpiEntries.length > 0 ? getKPITrend(kpiEntries) : null
+  const kpiChartData = kpiEntries.slice(-14).map(e => ({ date: e.entry_date.slice(5), value: Number(e.value) }))
+  const kpiLatest = kpiEntries.length > 0 ? kpiEntries[kpiEntries.length - 1].value : null
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -108,7 +142,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className={`grid gap-4 ${primaryKpi ? 'grid-cols-4' : 'grid-cols-3'}`}>
         <div className="bg-surface rounded-2xl border border-border p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">Daily Progress</span>
@@ -148,6 +182,39 @@ export default function Dashboard() {
             </Link>
           )}
         </div>
+
+        {/* KPI Sparkline Card */}
+        {primaryKpi && (
+          <Link to="/kpis" className="bg-surface rounded-2xl border border-border p-4 hover:border-gold/20 transition-colors">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-text-muted uppercase tracking-wide truncate">{primaryKpi.name}</span>
+              <Target size={14} className="text-gold shrink-0" />
+            </div>
+            <div className="flex items-center gap-2">
+              <p className="text-xl font-bold">{kpiLatest ?? '—'}</p>
+              {kpiTrend === 'up' && <TrendingUp size={16} className="text-emerald-400" />}
+              {kpiTrend === 'down' && <TrendingDown size={16} className="text-red-400" />}
+              {kpiTrend === 'flat' && <Minus size={16} className="text-text-muted" />}
+            </div>
+            {kpiChartData.length > 1 && (
+              <div className="h-8 mt-1 -mx-1">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={kpiChartData}>
+                    <defs>
+                      <linearGradient id="dashKpi" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={kpiTrend === 'up' ? '#10b981' : kpiTrend === 'down' ? '#ef4444' : '#C9A84C'} stopOpacity={0.3} />
+                        <stop offset="100%" stopColor={kpiTrend === 'up' ? '#10b981' : kpiTrend === 'down' ? '#ef4444' : '#C9A84C'} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <Area type="monotone" dataKey="value"
+                      stroke={kpiTrend === 'up' ? '#10b981' : kpiTrend === 'down' ? '#ef4444' : '#C9A84C'}
+                      fill="url(#dashKpi)" strokeWidth={1.5} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </Link>
+        )}
       </div>
 
       {/* Must-Do */}
