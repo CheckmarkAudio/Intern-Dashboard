@@ -30,7 +30,7 @@ export default function Layout() {
   const navigate = useNavigate()
 
   const handleSignOut = async () => {
-    await signOut()
+    try { await signOut() } catch {}
     navigate('/login')
   }
 
