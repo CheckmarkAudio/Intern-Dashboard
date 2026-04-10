@@ -103,7 +103,11 @@ export default function Layout() {
         )}
       </nav>
 
-      <div className="p-3 mx-3 mb-3 rounded-xl bg-surface-alt border border-border">
+      <button
+        onClick={handleSignOut}
+        className="p-3 mx-3 mb-3 rounded-xl bg-surface-alt border border-border hover:bg-surface-hover transition-all cursor-pointer w-[calc(100%-1.5rem)] text-left"
+        title="Sign out"
+      >
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-gold/15 text-gold flex items-center justify-center text-xs font-bold">
             {profile?.display_name?.charAt(0)?.toUpperCase() ?? '?'}
@@ -112,15 +116,9 @@ export default function Layout() {
             <p className="text-sm font-semibold truncate text-text">{profile?.display_name ?? 'User'}</p>
             <p className="text-[11px] text-text-light truncate capitalize">{profile?.position ?? 'Member'}</p>
           </div>
-          <button
-            onClick={handleSignOut}
-            className="p-2 rounded-lg text-text-light hover:text-red-400 hover:bg-red-500/10 transition-all"
-            title="Sign out"
-          >
-            <LogOut size={15} />
-          </button>
+          <LogOut size={15} className="text-text-light shrink-0" />
         </div>
-      </div>
+      </button>
     </div>
   )
 
