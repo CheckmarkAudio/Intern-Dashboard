@@ -23,6 +23,12 @@ export default function Login() {
 
   if (user) return <Navigate to="/" replace />
 
+  const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> =>
+    Promise.race([
+      promise,
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Request timed out — the server may be unavailable. Please try again.')), ms)),
+    ])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -31,7 +37,7 @@ export default function Login() {
 
     try {
       if (tab === 'signin') {
-        const { error } = await signIn(email, password)
+        const { error } = await withTimeout(signIn(email, password), 10000)
         if (error) setError(error.message)
       } else {
         if (!displayName.trim()) {
@@ -39,12 +45,12 @@ export default function Login() {
           setLoading(false)
           return
         }
-        const { error } = await signUp(email, password, displayName)
+        const { error } = await withTimeout(signUp(email, password, displayName), 10000)
         if (error) setError(error.message)
         else setSuccess('Account created! Check your email to verify, then sign in.')
       }
-    } catch {
-      setError('An unexpected error occurred')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
     } finally {
       setLoading(false)
     }
