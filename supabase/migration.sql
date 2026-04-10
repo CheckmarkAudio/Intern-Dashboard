@@ -459,6 +459,8 @@ CREATE TABLE IF NOT EXISTS intern_daily_notes (
   manager_reply text,
   team_id uuid REFERENCES teams(id)
 );
+ALTER TABLE intern_daily_notes
+  ADD COLUMN IF NOT EXISTS team_id uuid REFERENCES teams(id);
 ALTER TABLE intern_daily_notes ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "intern_daily_notes_select" ON intern_daily_notes;
@@ -497,6 +499,8 @@ CREATE TABLE IF NOT EXISTS intern_leads (
   created_at timestamptz DEFAULT now(),
   team_id uuid REFERENCES teams(id)
 );
+ALTER TABLE intern_leads
+  ADD COLUMN IF NOT EXISTS team_id uuid REFERENCES teams(id);
 ALTER TABLE intern_leads ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "intern_leads_select" ON intern_leads;
@@ -528,6 +532,8 @@ CREATE TABLE IF NOT EXISTS intern_performance_reviews (
   created_at timestamptz DEFAULT now(),
   team_id uuid REFERENCES teams(id)
 );
+ALTER TABLE intern_performance_reviews
+  ADD COLUMN IF NOT EXISTS team_id uuid REFERENCES teams(id);
 ALTER TABLE intern_performance_reviews ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "intern_performance_reviews_select" ON intern_performance_reviews;
@@ -556,6 +562,8 @@ CREATE TABLE IF NOT EXISTS intern_performance_scores (
   score numeric NOT NULL DEFAULT 0,
   team_id uuid REFERENCES teams(id)
 );
+ALTER TABLE intern_performance_scores
+  ADD COLUMN IF NOT EXISTS team_id uuid REFERENCES teams(id);
 ALTER TABLE intern_performance_scores ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "intern_performance_scores_select" ON intern_performance_scores;
@@ -585,6 +593,8 @@ CREATE TABLE IF NOT EXISTS intern_schedule_templates (
   frequency text NOT NULL DEFAULT 'weekly',
   team_id uuid REFERENCES teams(id)
 );
+ALTER TABLE intern_schedule_templates
+  ADD COLUMN IF NOT EXISTS team_id uuid REFERENCES teams(id);
 ALTER TABLE intern_schedule_templates ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "intern_schedule_templates_select" ON intern_schedule_templates;
@@ -614,6 +624,8 @@ CREATE TABLE IF NOT EXISTS intern_checklist_instances (
   created_at timestamptz DEFAULT now(),
   team_id uuid REFERENCES teams(id)
 );
+ALTER TABLE intern_checklist_instances
+  ADD COLUMN IF NOT EXISTS team_id uuid REFERENCES teams(id);
 ALTER TABLE intern_checklist_instances ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "intern_checklist_instances_select" ON intern_checklist_instances;
@@ -646,6 +658,8 @@ CREATE TABLE IF NOT EXISTS intern_checklist_items (
   is_critical boolean DEFAULT false,
   team_id uuid REFERENCES teams(id)
 );
+ALTER TABLE intern_checklist_items
+  ADD COLUMN IF NOT EXISTS team_id uuid REFERENCES teams(id);
 ALTER TABLE intern_checklist_items ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "intern_checklist_items_select" ON intern_checklist_items;
