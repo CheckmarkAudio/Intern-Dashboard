@@ -139,11 +139,11 @@ DROP POLICY IF EXISTS "report_templates_delete" ON report_templates;
 CREATE POLICY "report_templates_select" ON report_templates
   FOR SELECT TO authenticated USING (team_id = get_my_team_id());
 CREATE POLICY "report_templates_insert" ON report_templates
-  FOR INSERT TO authenticated WITH CHECK (team_id = get_my_team_id());
+  FOR INSERT TO authenticated WITH CHECK (team_id = get_my_team_id() AND is_team_admin());
 CREATE POLICY "report_templates_update" ON report_templates
-  FOR UPDATE TO authenticated USING (team_id = get_my_team_id());
+  FOR UPDATE TO authenticated USING (team_id = get_my_team_id() AND is_team_admin());
 CREATE POLICY "report_templates_delete" ON report_templates
-  FOR DELETE TO authenticated USING (team_id = get_my_team_id());
+  FOR DELETE TO authenticated USING (team_id = get_my_team_id() AND is_team_admin());
 
 DROP TRIGGER IF EXISTS set_team_id ON report_templates;
 CREATE TRIGGER set_team_id BEFORE INSERT ON report_templates
@@ -205,11 +205,11 @@ DROP POLICY IF EXISTS "task_assignments_delete" ON task_assignments;
 CREATE POLICY "task_assignments_select" ON task_assignments
   FOR SELECT TO authenticated USING (team_id = get_my_team_id());
 CREATE POLICY "task_assignments_insert" ON task_assignments
-  FOR INSERT TO authenticated WITH CHECK (team_id = get_my_team_id());
+  FOR INSERT TO authenticated WITH CHECK (team_id = get_my_team_id() AND is_team_admin());
 CREATE POLICY "task_assignments_update" ON task_assignments
-  FOR UPDATE TO authenticated USING (team_id = get_my_team_id());
+  FOR UPDATE TO authenticated USING (team_id = get_my_team_id() AND is_team_admin());
 CREATE POLICY "task_assignments_delete" ON task_assignments
-  FOR DELETE TO authenticated USING (team_id = get_my_team_id());
+  FOR DELETE TO authenticated USING (team_id = get_my_team_id() AND is_team_admin());
 
 DROP TRIGGER IF EXISTS set_team_id ON task_assignments;
 CREATE TRIGGER set_team_id BEFORE INSERT ON task_assignments
@@ -540,11 +540,11 @@ DROP POLICY IF EXISTS "intern_performance_reviews_delete" ON intern_performance_
 CREATE POLICY "intern_performance_reviews_select" ON intern_performance_reviews
   FOR SELECT TO authenticated USING (team_id = get_my_team_id());
 CREATE POLICY "intern_performance_reviews_insert" ON intern_performance_reviews
-  FOR INSERT TO authenticated WITH CHECK (team_id = get_my_team_id());
+  FOR INSERT TO authenticated WITH CHECK (team_id = get_my_team_id() AND is_team_admin());
 CREATE POLICY "intern_performance_reviews_update" ON intern_performance_reviews
-  FOR UPDATE TO authenticated USING (team_id = get_my_team_id());
+  FOR UPDATE TO authenticated USING (team_id = get_my_team_id() AND is_team_admin());
 CREATE POLICY "intern_performance_reviews_delete" ON intern_performance_reviews
-  FOR DELETE TO authenticated USING (team_id = get_my_team_id());
+  FOR DELETE TO authenticated USING (team_id = get_my_team_id() AND is_team_admin());
 
 DROP TRIGGER IF EXISTS set_team_id ON intern_performance_reviews;
 CREATE TRIGGER set_team_id BEFORE INSERT ON intern_performance_reviews

@@ -67,6 +67,7 @@ body {
     outline: none;
     background-color: var(--color-surface);
     color: var(--color-text);
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
   }
   input:focus, select:focus, textarea:focus {
     box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.3);
@@ -103,4 +104,48 @@ body {
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}
+
+.skip-link {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+.skip-link:focus {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  width: auto;
+  height: auto;
+  padding: 12px 24px;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  z-index: 9999;
+  background: var(--color-surface);
+  color: var(--color-gold);
+  border: 2px solid var(--color-gold);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
 }
