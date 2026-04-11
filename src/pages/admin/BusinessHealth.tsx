@@ -57,12 +57,17 @@ function computePlatformInsights(
   }
 
   const latest = sorted[sorted.length - 1]
+  if (!latest) {
+    return { latest: null, weekAgo: null, wowPct: null, declining: false }
+  }
   const refDate = addDays(latest.metric_date, -7)
 
   let weekAgo: PlatformMetric | null = null
   for (let i = sorted.length - 1; i >= 0; i--) {
-    if (sorted[i].metric_date <= refDate) {
-      weekAgo = sorted[i]
+    const candidate = sorted[i]
+    if (!candidate) continue
+    if (candidate.metric_date <= refDate) {
+      weekAgo = candidate
       break
     }
   }

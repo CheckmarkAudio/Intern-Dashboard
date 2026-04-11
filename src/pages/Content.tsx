@@ -63,7 +63,7 @@ export default function Content() {
         console.error(metErr)
       }
 
-      const memberMap = new Map((members ?? []).map((m: TeamMember) => [m.id, m.display_name]))
+      const memberMap = new Map((members ?? []).map((m: { id: string; display_name: string }) => [m.id, m.display_name]))
       const enriched = (subs ?? []).map((s: DeliverableSubmission) => ({
         ...s,
         display_name: memberMap.get(s.intern_id) ?? 'Unknown',

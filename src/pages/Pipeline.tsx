@@ -209,7 +209,9 @@ export default function Pipeline() {
     e?.stopPropagation()
     const idx = STAGES.findIndex((s) => s.key === entry.stage)
     if (idx < 0 || idx >= STAGES.length - 1) return
-    const next = STAGES[idx + 1].key
+    const nextStage = STAGES[idx + 1]
+    if (!nextStage) return
+    const next = nextStage.key
     setAdvancingId(entry.id)
     const { error } = await supabase
       .from('artist_pipeline')
@@ -221,7 +223,7 @@ export default function Pipeline() {
       toast(error.message || 'Could not advance stage', 'error')
       return
     }
-    toast(`Moved to ${STAGES[idx + 1].label}`, 'success')
+    toast(`Moved to ${nextStage.label}`, 'success')
     await loadPipeline()
     if (expanded?.id === entry.id) {
       setExpanded({ ...entry, stage: next })

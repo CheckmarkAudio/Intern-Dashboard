@@ -23,11 +23,14 @@ export default function MetricsEntry({ onSaved }: { onSaved?: () => void }) {
     setSaving(true)
 
     const entries = PLATFORMS
-      .filter(p => counts[p.key] && parseInt(counts[p.key]) > 0)
+      .filter(p => {
+        const raw = counts[p.key] ?? ''
+        return raw !== '' && parseInt(raw, 10) > 0
+      })
       .map(p => ({
         platform: p.key,
         metric_date: today,
-        follower_count: parseInt(counts[p.key]),
+        follower_count: parseInt(counts[p.key] ?? '0', 10),
         entered_by: profile.id,
       }))
 

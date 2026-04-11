@@ -25,10 +25,11 @@ function getKPITrend(entries: MemberKPIEntry[]): 'up' | 'down' | 'flat' {
   if (entries.length < 2) return 'flat'
   const sorted = [...entries].sort((a, b) => a.entry_date.localeCompare(b.entry_date))
   const recent = sorted.slice(-5)
-  const first = recent[0].value
-  const last = recent[recent.length - 1].value
-  if (last > first) return 'up'
-  if (last < first) return 'down'
+  const first = recent[0]
+  const last = recent[recent.length - 1]
+  if (!first || !last) return 'flat'
+  if (last.value > first.value) return 'up'
+  if (last.value < first.value) return 'down'
   return 'flat'
 }
 
@@ -218,7 +219,7 @@ export default function KPIDashboard() {
               date: e.entry_date.slice(5),
               value: Number(e.value),
             }))
-            const latestValue = kpiEntries.length > 0 ? kpiEntries[kpiEntries.length - 1].value : null
+            const latestValue = kpiEntries.length > 0 ? (kpiEntries[kpiEntries.length - 1]?.value ?? null) : null
             const unitLabel = UNIT_LABELS[kpi.unit] ?? ''
 
             return (

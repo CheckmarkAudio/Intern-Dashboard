@@ -45,10 +45,11 @@ function getKPITrend(entries: MemberKPIEntry[]): 'up' | 'down' | 'flat' {
   if (entries.length < 2) return 'flat'
   const sorted = [...entries].sort((a, b) => a.entry_date.localeCompare(b.entry_date))
   const recent = sorted.slice(-3)
-  const first = recent[0].value
-  const last = recent[recent.length - 1].value
-  if (last > first) return 'up'
-  if (last < first) return 'down'
+  const first = recent[0]
+  const last = recent[recent.length - 1]
+  if (!first || !last) return 'flat'
+  if (last.value > first.value) return 'up'
+  if (last.value < first.value) return 'down'
   return 'flat'
 }
 
@@ -359,7 +360,7 @@ export default function MyTeam() {
                         <div className="flex items-center justify-between">
                           <span>{primaryKpi.name}</span>
                           <span className="font-medium text-text">
-                            {primaryEntries.length > 0 ? primaryEntries[primaryEntries.length - 1].value : '—'}
+                            {primaryEntries.length > 0 ? (primaryEntries[primaryEntries.length - 1]?.value ?? '—') : '—'}
                             {primaryKpi.target_value != null && <span className="text-text-light"> / {primaryKpi.target_value}</span>}
                           </span>
                         </div>
@@ -686,7 +687,7 @@ export default function MyTeam() {
                           date: e.entry_date.slice(5),
                           value: Number(e.value),
                         }))
-                        const latestValue = entries.length > 0 ? entries[entries.length - 1].value : null
+                        const latestValue = entries.length > 0 ? (entries[entries.length - 1]?.value ?? null) : null
                         const stageInfo = FLYWHEEL_STAGES.find(s => s.key === kpi.flywheel_stage)
 
                         return (

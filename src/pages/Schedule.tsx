@@ -21,11 +21,12 @@ function TodayFocus({ profileId, isAdmin }: { profileId?: string; isAdmin?: bool
 
   useEffect(() => {
     if (!isAdmin) return
-    supabase.from('intern_users').select('id, display_name').order('display_name')
+    void supabase.from('intern_users').select('id, display_name').order('display_name')
       .then(({ data }) => {
         const list = (data ?? []) as TeamMember[]
         setMembers(list)
-        if (!selectedMemberId && list.length > 0) setSelectedMemberId(list[0].id)
+        const firstMember = list[0]
+        if (!selectedMemberId && firstMember) setSelectedMemberId(firstMember.id)
       })
   }, [isAdmin]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -46,17 +47,18 @@ function TodayFocus({ profileId, isAdmin }: { profileId?: string; isAdmin?: bool
       .select('focus_areas')
       .eq('day_of_week', dayIndex)
     if (targetId) query = query.eq('intern_id', targetId)
-    query
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => {
+    void (async () => {
+      try {
+        const { data } = await query.limit(1).maybeSingle()
         const areas: string[] = data?.focus_areas ?? []
         setTasks(areas.map(a => ({ text: a, done: false })))
+      } catch {
+        // Ignore and show empty state.
+        setTasks([])
+      } finally {
         setLoading(false)
-      })
-      .catch(() => {
-        setLoading(false)
-      })
+      }
+    })()
   }, [targetId, isAdmin])
 
   const toggle = (idx: number) => {
