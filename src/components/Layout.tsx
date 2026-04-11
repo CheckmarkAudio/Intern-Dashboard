@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import { useRouteAnnounce } from '../hooks/useRouteAnnounce'
 import ErrorBoundary from './ErrorBoundary'
+import ForcePasswordChangeModal from './auth/ForcePasswordChangeModal'
 import type { LucideProps } from 'lucide-react'
 import {
   LayoutDashboard, Users, Calendar, CalendarDays, Settings,
@@ -238,6 +239,11 @@ export default function Layout() {
           </ErrorBoundary>
         </div>
       </main>
+
+      {/* Phase 6.2 — Forces a fresh password on the first login of any
+          admin-created member. Renders nothing unless the auth user has
+          `requires_password_change: true` in user_metadata. */}
+      <ForcePasswordChangeModal />
     </div>
   )
 }
