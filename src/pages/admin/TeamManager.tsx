@@ -1,15 +1,22 @@
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { normalizeEmail } from '../../lib/email'
+import { useAuth } from '../../contexts/AuthContext'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useToast } from '../../components/Toast'
 import ConfirmModal from '../../components/ConfirmModal'
 import { Button, Input, Select, Badge, EmptyState, PageHeader } from '../../components/ui'
-import type { TeamMember } from '../../types'
+import {
+  loadActiveTemplates,
+  loadDefaultTemplateIdsForPosition,
+  assignTemplatesToMember,
+  generateTodayChecklist,
+} from '../../lib/queries/templates'
+import type { TeamMember, ReportTemplate } from '../../types'
 import {
   Users, X, Loader2, Edit2, Trash2, Search, Shield, UserCheck,
-  Mail, Phone, Calendar as CalendarIcon, Save, ChevronRight,
-  MoreVertical, UserPlus, Filter,
+  Mail, Phone, Calendar as CalendarIcon, Save, ChevronRight, ChevronLeft,
+  MoreVertical, UserPlus, Filter, ListChecks, Check, ClipboardList,
 } from 'lucide-react'
 
 import type { BadgeVariant } from '../../components/ui'
@@ -39,6 +46,7 @@ const EMPTY_MEMBER: MemberForm = {
 export default function TeamManager() {
   useDocumentTitle('Team Manager - Checkmark Audio')
   const { toast } = useToast()
+  const { profile } = useAuth()
   const [members, setMembers] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -49,6 +57,16 @@ export default function TeamManager() {
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState<MemberForm>(EMPTY_MEMBER)
   const [customPosition, setCustomPosition] = useState('')
+
+  // ─── Phase 6.3 — Multi-step Add Member state ───────────────────────
+  // Step 1 = profile (existing fields), Step 2 = templates, Step 3 = review.
+  // Editing an existing member always stays a single-step form (step 1).
+  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [dailyTemplates, setDailyTemplates] = useState<ReportTemplate[]>([])
+  const [weeklyTemplates, setWeeklyTemplates] = useState<ReportTemplate[]>([])
+  const [selectedDailyTemplateIds, setSelectedDailyTemplateIds] = useState<Set<string>>(new Set())
+  const [selectedWeeklyTemplateIds, setSelectedWeeklyTemplateIds] = useState<Set<string>>(new Set())
+  const [templatesLoading, setTemplatesLoading] = useState(false)
 
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
@@ -77,14 +95,49 @@ export default function TeamManager() {
     setLoading(false)
   }
 
+  // ─── Multi-step Add Member helpers (Phase 6.3) ─────────────────────
+  // Step 1 → 2 → 3, with edit-mode bypassing the multi-step flow entirely.
+
+  const validateStep1 = (): string | null => {
+    if (!formData.display_name.trim()) return 'Full name is required'
+    if (!editingMember) {
+      const email = normalizeEmail(formData.email)
+      if (!email) return 'Email is required'
+      if (formData.default_password.length < 8) {
+        return 'Default password must be at least 8 characters'
+      }
+    }
+    if (formData.position === 'custom' && !customPosition.trim()) {
+      return 'Custom position name is required'
+    }
+    return null
+  }
+
+  const handleNext = () => {
+    if (step === 1) {
+      const err = validateStep1()
+      if (err) { toast(err, 'error'); return }
+      setStep(2)
+      return
+    }
+    if (step === 2) {
+      setStep(3)
+      return
+    }
+  }
+
+  const handleBack = () => {
+    if (step === 2) setStep(1)
+    else if (step === 3) setStep(2)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSubmitting(true)
 
-    const position = formData.position === 'custom' ? customPosition : formData.position
-    const email = normalizeEmail(formData.email)
-
+    // Edit mode is single-step — preserve the existing flow exactly.
     if (editingMember) {
+      setSubmitting(true)
+      const position = formData.position === 'custom' ? customPosition : formData.position
       const { error } = await supabase.from('intern_users').update({
         display_name: formData.display_name.trim(),
         role: formData.role,
@@ -101,86 +154,153 @@ export default function TeamManager() {
         return
       }
       toast('Member updated')
-    } else {
-      if (!email) {
-        toast('Email is required', 'error')
-        setSubmitting(false)
-        return
-      }
-      if (formData.default_password.length < 8) {
-        toast('Default password must be at least 8 characters', 'error')
-        setSubmitting(false)
-        return
-      }
-
-      // Admin-create-member Edge Function: creates the auth user (with the
-      // admin-supplied default password) AND the intern_users row atomically.
-      // See supabase/functions/admin-create-member/index.ts.
-      const { data: result, error } = await supabase.functions.invoke<
-        { ok: boolean; profile?: TeamMember; error?: string }
-      >('admin-create-member', {
-        body: {
-          email,
-          display_name: formData.display_name.trim(),
-          default_password: formData.default_password,
-          role: formData.role,
-          position,
-          phone: formData.phone.trim() || null,
-          start_date: formData.start_date || null,
-          status: formData.status,
-          managed_by: formData.managed_by || null,
-        },
-      })
-
-      if (error || !result?.ok) {
-        // supabase.functions.invoke wraps non-2xx responses in a generic
-        // FunctionsHttpError ("Edge Function returned a non-2xx status code")
-        // and stuffs the actual response on error.context. Read it so the
-        // toast shows the real reason instead of the wrapper.
-        let msg = result?.error || error?.message || 'Failed to add member'
-        const ctx = (error as { context?: Response } | null)?.context
-        if (ctx && typeof ctx.text === 'function') {
-          try {
-            const raw = await ctx.text()
-            if (raw) {
-              try {
-                const parsed = JSON.parse(raw)
-                if (parsed?.error) msg = parsed.error
-                else if (parsed?.message) msg = parsed.message
-                else msg = raw
-              } catch {
-                msg = raw
-              }
-            }
-          } catch {
-            // fall through with the original message
-          }
-        }
-        console.error('[TeamManager] admin-create-member failed:', msg, error, result)
-        toast(msg, 'error')
-        setSubmitting(false)
-        return
-      }
-      toast(`Member added — share the default password with them`)
+      closeForm()
+      setSubmitting(false)
+      loadMembers()
+      return
     }
 
+    // Add mode — submit only fires from step 3. Steps 1 + 2 advance via
+    // handleNext, never via form submission.
+    if (step !== 3) {
+      handleNext()
+      return
+    }
+
+    setSubmitting(true)
+    const position = formData.position === 'custom' ? customPosition : formData.position
+    const email = normalizeEmail(formData.email)
+
+    // 1) Create the auth user + intern_users row atomically via the Edge Function.
+    const { data: result, error } = await supabase.functions.invoke<
+      { ok: boolean; profile?: TeamMember; error?: string; where?: string }
+    >('admin-create-member', {
+      body: {
+        email,
+        display_name: formData.display_name.trim(),
+        default_password: formData.default_password,
+        role: formData.role,
+        position,
+        phone: formData.phone.trim() || null,
+        start_date: formData.start_date || null,
+        status: formData.status,
+        managed_by: formData.managed_by || null,
+      },
+    })
+
+    if (error || !result?.ok || !result.profile) {
+      // Read the function's actual JSON body off error.context (the
+      // generic FunctionsHttpError wrapper hides it otherwise).
+      let msg = result?.error || error?.message || 'Failed to add member'
+      const ctx = (error as { context?: Response } | null)?.context
+      if (ctx && typeof ctx.text === 'function') {
+        try {
+          const raw = await ctx.text()
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw)
+              if (parsed?.error) msg = parsed.error
+              else if (parsed?.message) msg = parsed.message
+              else msg = raw
+            } catch {
+              msg = raw
+            }
+          }
+        } catch { /* fall through */ }
+      }
+      console.error('[TeamManager] admin-create-member failed:', msg, error, result)
+      toast(msg, 'error')
+      setSubmitting(false)
+      return
+    }
+
+    const newMember = result.profile
+
+    // 2) Assign the templates the admin selected. Non-fatal — if it
+    //    fails the member still exists, just empty checklists.
+    const templateIds = [
+      ...Array.from(selectedDailyTemplateIds),
+      ...Array.from(selectedWeeklyTemplateIds),
+    ]
+    if (templateIds.length > 0) {
+      try {
+        await assignTemplatesToMember(newMember.id, templateIds, profile?.id)
+      } catch (assignErr) {
+        console.error('[TeamManager] template assignment failed:', assignErr)
+        toast(
+          'Member created, but template assignment failed. Assign manually from Templates.',
+          'error',
+        )
+      }
+    }
+
+    // 3) Generate today's checklist instance so the new member sees
+    //    their first day's tasks immediately on first login. Non-fatal.
+    try {
+      await generateTodayChecklist(newMember.id)
+    } catch (genErr) {
+      console.error('[TeamManager] checklist generation failed:', genErr)
+      // Quiet — most common reason is "no templates assigned yet", which
+      // is fine.
+    }
+
+    toast(`Member added — share the default password with them`)
     closeForm()
     setSubmitting(false)
     loadMembers()
   }
 
-  const openAddForm = () => {
+  const openAddForm = async () => {
     setEditingMember(null)
     setFormData(EMPTY_MEMBER)
     setCustomPosition('')
+    setStep(1)
+    setSelectedDailyTemplateIds(new Set())
+    setSelectedWeeklyTemplateIds(new Set())
     setShowForm(true)
+    // Kick off template fetch in parallel; the user usually spends a
+    // few seconds on step 1, so we'll have results before they hit Next.
+    setTemplatesLoading(true)
+    try {
+      const [d, w] = await Promise.all([
+        loadActiveTemplates('daily'),
+        loadActiveTemplates('weekly'),
+      ])
+      setDailyTemplates(d)
+      setWeeklyTemplates(w)
+    } finally {
+      setTemplatesLoading(false)
+    }
   }
+
+  // When the admin picks a position in step 1, pre-check the templates
+  // already assigned to that position so the default-for-this-position
+  // bundle is just one click away.
+  useEffect(() => {
+    if (editingMember || !showForm) return
+    const position = formData.position === 'custom' ? customPosition : formData.position
+    if (!position) return
+    let cancelled = false
+    ;(async () => {
+      const [defaultDaily, defaultWeekly] = await Promise.all([
+        loadDefaultTemplateIdsForPosition(position, 'daily'),
+        loadDefaultTemplateIdsForPosition(position, 'weekly'),
+      ])
+      if (cancelled) return
+      setSelectedDailyTemplateIds(new Set(defaultDaily))
+      setSelectedWeeklyTemplateIds(new Set(defaultWeekly))
+    })()
+    return () => { cancelled = true }
+  }, [formData.position, customPosition, editingMember, showForm])
 
   const closeForm = () => {
     setShowForm(false)
     setEditingMember(null)
     setFormData(EMPTY_MEMBER)
     setCustomPosition('')
+    setStep(1)
+    setSelectedDailyTemplateIds(new Set())
+    setSelectedWeeklyTemplateIds(new Set())
   }
 
   const handleEdit = (member: TeamMember) => {
@@ -544,7 +664,9 @@ export default function TeamManager() {
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
               <h2 id="team-manager-panel-title" className="font-semibold text-lg">
-                {editingMember ? 'Edit Team Member' : 'Add Team Member'}
+                {editingMember
+                  ? 'Edit Team Member'
+                  : `Add Team Member · Step ${step} of 3`}
               </h2>
               <Button
                 variant="ghost"
@@ -557,8 +679,46 @@ export default function TeamManager() {
               </Button>
             </div>
 
+            {/* Step indicator (add mode only) */}
+            {!editingMember && (
+              <div className="px-6 py-3 border-b border-border bg-surface-alt/40">
+                <div className="flex items-center gap-2">
+                  {[
+                    { n: 1, label: 'Profile' },
+                    { n: 2, label: 'Templates' },
+                    { n: 3, label: 'Review' },
+                  ].map((s, i) => (
+                    <div key={s.n} className="flex items-center gap-2 flex-1">
+                      <div
+                        className={`shrink-0 w-6 h-6 rounded-full text-[10px] font-bold flex items-center justify-center transition-colors ${
+                          step >= s.n
+                            ? 'bg-gold text-black'
+                            : 'bg-surface-alt text-text-light border border-border'
+                        }`}
+                      >
+                        {step > s.n ? <Check size={11} /> : s.n}
+                      </div>
+                      <span
+                        className={`text-xs font-medium ${
+                          step === s.n ? 'text-text' : 'text-text-muted'
+                        }`}
+                      >
+                        {s.label}
+                      </span>
+                      {i < 2 && (
+                        <div className={`flex-1 h-px ${step > s.n ? 'bg-gold' : 'bg-border'}`} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto flex flex-col">
               <div className="p-6 space-y-5 flex-1">
+                {/* ─── Step 1 — Profile ─── */}
+                {(editingMember || step === 1) && (
+                <>
                 <Input
                   id="team-member-display-name"
                   label="Full Name"
@@ -672,18 +832,159 @@ export default function TeamManager() {
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </Select>
+                </>
+                )}
+
+                {/* ─── Step 2 — Templates ─── */}
+                {!editingMember && step === 2 && (
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-sm font-semibold flex items-center gap-2 text-text">
+                        <ClipboardList size={14} className="text-gold" aria-hidden="true" />
+                        Assign templates
+                      </h3>
+                      <p className="text-xs text-text-muted mt-1">
+                        Pick the daily and weekly checklists this member should run on first
+                        sign-in. Defaults for their position are pre-checked.
+                      </p>
+                    </div>
+
+                    {templatesLoading ? (
+                      <div className="flex items-center gap-2 text-xs text-text-muted">
+                        <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                        Loading templates…
+                      </div>
+                    ) : (
+                      <>
+                        <TemplatePicker
+                          label="Daily templates"
+                          templates={dailyTemplates}
+                          selectedIds={selectedDailyTemplateIds}
+                          onToggle={(id) => {
+                            setSelectedDailyTemplateIds((prev) => {
+                              const next = new Set(prev)
+                              if (next.has(id)) next.delete(id)
+                              else next.add(id)
+                              return next
+                            })
+                          }}
+                        />
+                        <TemplatePicker
+                          label="Weekly templates"
+                          templates={weeklyTemplates}
+                          selectedIds={selectedWeeklyTemplateIds}
+                          onToggle={(id) => {
+                            setSelectedWeeklyTemplateIds((prev) => {
+                              const next = new Set(prev)
+                              if (next.has(id)) next.delete(id)
+                              else next.add(id)
+                              return next
+                            })
+                          }}
+                        />
+                      </>
+                    )}
+
+                    <p className="text-[11px] text-text-light">
+                      You can skip this step and assign templates later from the Templates page.
+                    </p>
+                  </div>
+                )}
+
+                {/* ─── Step 3 — Review ─── */}
+                {!editingMember && step === 3 && (
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-sm font-semibold flex items-center gap-2 text-text">
+                        <UserCheck size={14} className="text-gold" aria-hidden="true" />
+                        Review &amp; create
+                      </h3>
+                      <p className="text-xs text-text-muted mt-1">
+                        Confirm everything below. The default password will need to be shared with
+                        the new member directly — they'll be required to change it on first sign-in.
+                      </p>
+                    </div>
+
+                    <ReviewSummary
+                      label="Profile"
+                      rows={[
+                        ['Name', formData.display_name],
+                        ['Email', normalizeEmail(formData.email)],
+                        ['Role', formData.role],
+                        ['Position', formData.position === 'custom' ? customPosition : getPositionLabel(formData.position)],
+                        ['Manager', getManagerName(formData.managed_by) ?? 'None'],
+                        ['Phone', formData.phone || '—'],
+                        ['Start date', formData.start_date || '—'],
+                        ['Status', formData.status],
+                        ['Default password', formData.default_password],
+                      ]}
+                    />
+
+                    <ReviewSummary
+                      label="Templates"
+                      rows={[
+                        [
+                          'Daily',
+                          selectedDailyTemplateIds.size === 0
+                            ? 'None'
+                            : Array.from(selectedDailyTemplateIds)
+                                .map((id) => dailyTemplates.find((t) => t.id === id)?.name ?? id)
+                                .join(', '),
+                        ],
+                        [
+                          'Weekly',
+                          selectedWeeklyTemplateIds.size === 0
+                            ? 'None'
+                            : Array.from(selectedWeeklyTemplateIds)
+                                .map((id) => weeklyTemplates.find((t) => t.id === id)?.name ?? id)
+                                .join(', '),
+                        ],
+                      ]}
+                    />
+                  </div>
+                )}
               </div>
 
-              <div className="sticky bottom-0 flex items-center justify-end gap-2 px-6 py-4 border-t border-border bg-surface">
-                <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  loading={submitting}
-                  iconLeft={!submitting ? <Save size={16} aria-hidden="true" /> : undefined}
-                >
-                  {editingMember ? 'Update Member' : 'Add Member'}
-                </Button>
+              <div className="sticky bottom-0 flex items-center justify-between gap-2 px-6 py-4 border-t border-border bg-surface">
+                {/* Left: Back / Cancel */}
+                <div>
+                  {!editingMember && step > 1 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={handleBack}
+                      iconLeft={<ChevronLeft size={14} aria-hidden="true" />}
+                    >
+                      Back
+                    </Button>
+                  ) : (
+                    <Button type="button" variant="ghost" onClick={closeForm}>
+                      Cancel
+                    </Button>
+                  )}
+                </div>
+                {/* Right: Next / Create / Update */}
+                <div className="flex items-center gap-2">
+                  {!editingMember && step < 3 ? (
+                    <Button
+                      type="button"
+                      variant="primary"
+                      onClick={handleNext}
+                      iconLeft={<ChevronRight size={14} aria-hidden="true" />}
+                    >
+                      Next
+                    </Button>
+                  ) : (
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      loading={submitting}
+                      iconLeft={!submitting ? <Save size={16} aria-hidden="true" /> : undefined}
+                    >
+                      {editingMember ? 'Update Member' : 'Create Account'}
+                    </Button>
+                  )}
+                </div>
               </div>
             </form>
           </aside>
@@ -700,6 +1001,91 @@ export default function TeamManager() {
         onConfirm={handleDelete}
         onCancel={() => setConfirmState({ open: false, memberId: '', memberName: '', loading: false })}
       />
+    </div>
+  )
+}
+
+// ─── Step 2 helper: template multi-select list ───────────────────────
+
+function TemplatePicker({
+  label,
+  templates,
+  selectedIds,
+  onToggle,
+}: {
+  label: string
+  templates: ReportTemplate[]
+  selectedIds: Set<string>
+  onToggle: (id: string) => void
+}) {
+  return (
+    <div>
+      <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-2">
+        {label}
+      </p>
+      {templates.length === 0 ? (
+        <p className="text-xs text-text-light italic">
+          No {label.toLowerCase()} available. Create one from the Templates page first.
+        </p>
+      ) : (
+        <ul className="space-y-1.5 rounded-lg border border-border divide-y divide-border/60">
+          {templates.map((t) => {
+            const checked = selectedIds.has(t.id)
+            return (
+              <li key={t.id}>
+                <label
+                  className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-surface-alt/60 transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => onToggle(t.id)}
+                    className="w-4 h-4 rounded border-border accent-gold focus-ring"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-text truncate">{t.name}</p>
+                    <p className="text-[11px] text-text-light truncate">
+                      {t.fields?.length ?? 0} item{(t.fields?.length ?? 0) === 1 ? '' : 's'}
+                      {t.position ? ` · default for ${t.position}` : ''}
+                    </p>
+                  </div>
+                  {t.is_default && (
+                    <Badge variant="gold" size="sm">
+                      Default
+                    </Badge>
+                  )}
+                </label>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+// ─── Step 3 helper: read-only summary block ──────────────────────────
+
+function ReviewSummary({
+  label,
+  rows,
+}: {
+  label: string
+  rows: Array<[string, string]>
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-surface-alt/40 overflow-hidden">
+      <p className="px-4 py-2 border-b border-border text-[11px] font-semibold text-text-muted uppercase tracking-wide">
+        {label}
+      </p>
+      <dl className="divide-y divide-border/60">
+        {rows.map(([k, v]) => (
+          <div key={k} className="grid grid-cols-[120px_1fr] gap-3 px-4 py-2">
+            <dt className="text-xs text-text-muted">{k}</dt>
+            <dd className="text-xs text-text break-words">{v || '—'}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   )
 }

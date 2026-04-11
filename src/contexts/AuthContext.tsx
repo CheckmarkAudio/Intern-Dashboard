@@ -24,25 +24,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const sessionInitialized = useRef(false)
 
-  const buildFallbackProfile = useCallback((authUser: SupabaseUser): TeamMember => {
-    const derivedDisplayName =
-      (typeof authUser.user_metadata?.display_name === 'string' && authUser.user_metadata.display_name) ||
-      (typeof authUser.user_metadata?.full_name === 'string' && authUser.user_metadata.full_name) ||
-      (authUser.email?.split('@')[0] ?? 'User')
-    const derivedRole =
-      (typeof authUser.app_metadata?.role === 'string' && authUser.app_metadata.role) ||
-      (typeof authUser.user_metadata?.role === 'string' && authUser.user_metadata.role) ||
-      'member'
+  // Phase 6.4 — `buildFallbackProfile` was removed. Previously, if the
+  // intern_users lookup failed we'd synthesize a profile from auth.user
+  // metadata so the user wouldn't be locked out. That bypassed the
+  // admin-only-account-creation rule: any rogue auth.users row would
+  // become a usable dashboard session. The current `fetchProfile`
+  // returns a boolean and the AuthProvider effect calls
+  // `rejectAndSignOut` on `false`, signing the user out cleanly.
 
-    return {
-      id: authUser.id,
-      email: authUser.email ?? '',
-      display_name: derivedDisplayName,
-      role: derivedRole,
-    }
-  }, [])
-
-  const fetchProfile = useCallback(async (authUser: SupabaseUser) => {
+  /**
+   * Look up the signed-in auth user's profile in `intern_users`. Returns
+   * `true` if a profile was found (or successfully relinked from a
+   * pre-seeded row) and `false` if no admin-provisioned row exists for
+   * this user.
+   *
+   * Phase 6.4 — On `false`, the caller MUST sign the user out. We no
+   * longer auto-create a profile or fall back to `buildFallbackProfile`
+   * — both of those paths bypassed the admin-only-account-creation rule
+   * by silently letting any rogue `auth.users` row become a usable
+   * dashboard session. The hard reject is the enforcement point.
+   */
+  const fetchProfile = useCallback(async (authUser: SupabaseUser): Promise<boolean> => {
     const userId = authUser.id
     // Always normalize emails — the DB has a CHECK (email = lower(email))
     // constraint on intern_users plus RLS policies that compare via
@@ -56,18 +58,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .eq('id', userId)
       .maybeSingle()
     if (error) console.error('[AuthContext] Profile lookup failed:', error.message, error.code)
-    if (data) { setProfile(data as TeamMember); return }
+    if (data) { setProfile(data as TeamMember); return true }
 
     // 2) Secondary lookup: an admin may have pre-seeded a row keyed by email
-    //    before this user signed up (TeamManager creates rows with a random
-    //    UUID). Now that supabase/migrations/20260411_link_profiles_cascade
-    //    has added ON UPDATE CASCADE to every FK pointing at intern_users(id),
-    //    we can do a proper PK update to relink the pre-seeded row to the
-    //    new auth uid — the cascade propagates the change to every child
-    //    table (KPIs, checklists, reviews, submissions, etc.) automatically,
-    //    so the user inherits all their historical data. If the update fails
-    //    for any reason (cascade not applied in dev, RLS oddity, etc.) we
-    //    fall back to the old insert-copy path so nobody gets locked out.
+    //    before this user signed up (legacy TeamManager flow created rows
+    //    with random UUIDs). The cascade-link migration added ON UPDATE
+    //    CASCADE to every FK pointing at intern_users(id), so a clean PK
+    //    update relinks the pre-seeded row to the new auth uid and the
+    //    user inherits all their historical data automatically.
     if (email) {
       const { data: emailMatch, error: emailErr } = await supabase
         .from('intern_users')
@@ -76,7 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle()
       if (emailErr) console.error('[AuthContext] Email lookup failed:', emailErr.message)
       if (emailMatch && emailMatch.id !== userId) {
-        // Try the cascade-safe PK update first.
         const { data: updated, error: updateErr } = await supabase
           .from('intern_users')
           .update({ id: userId, email })
@@ -85,77 +82,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .maybeSingle()
         if (!updateErr && updated) {
           setProfile(updated as TeamMember)
-          return
+          return true
         }
-        if (updateErr) console.error('[AuthContext] Profile PK-relink failed, falling back to insert-copy:', updateErr.message, updateErr.code)
-
-        // Fallback: copy the seeded row's fields into a fresh row keyed by
-        // auth.uid(). Historical child rows stay attached to the old seed
-        // and will need manual reconciliation, but the user isn't locked out.
-        const seeded = emailMatch as TeamMember & {
-          position?: string | null
-          team_id?: string | null
-          phone?: string | null
-          start_date?: string | null
-          status?: string | null
-          managed_by?: string | null
-        }
-        const copied = {
-          id: userId,
-          email,
-          display_name: seeded.display_name,
-          role: seeded.role,
-          position: seeded.position ?? null,
-          team_id: seeded.team_id ?? null,
-          phone: seeded.phone ?? null,
-          start_date: seeded.start_date ?? null,
-          status: seeded.status ?? 'active',
-          managed_by: seeded.managed_by ?? null,
-        }
-        const { data: inserted, error: copyErr } = await supabase
-          .from('intern_users')
-          .insert(copied)
-          .select('*')
-          .maybeSingle()
-        if (copyErr) {
-          console.error('[AuthContext] Profile copy from seed failed:', copyErr.message, copyErr.code)
-          setProfile(copied as TeamMember)
-          return
-        }
-        setProfile((inserted ?? copied) as TeamMember)
-        return
+        if (updateErr) console.error('[AuthContext] Profile PK-relink failed:', updateErr.message, updateErr.code)
       }
     }
 
-    // 3) No seed, no existing row — create a fresh profile keyed by auth uid.
-    if (email) {
-      const newProfile = {
-        id: userId,
-        email,
-        display_name: email.split('@')[0] ?? 'User',
-        role: 'member' as const,
-      }
-      const { data: inserted, error: insertErr } = await supabase
-        .from('intern_users')
-        .insert(newProfile)
-        .select('*')
-        .maybeSingle()
-      if (insertErr) {
-        console.error('[AuthContext] Profile creation failed:', insertErr.message, insertErr.code)
-        setProfile(buildFallbackProfile(authUser))
-        return
-      }
-      setProfile((inserted ?? newProfile) as TeamMember)
-      return
-    }
-
-    // 4) Last-resort fallback to prevent "signed in but no profile" lockout.
-    setProfile(buildFallbackProfile(authUser))
-  }, [buildFallbackProfile])
+    // 3) No row found and no email-match cascade-link possible. This
+    //    user was NOT provisioned by an admin. Refuse to load. The
+    //    caller signs them out and surfaces the message via sessionStorage.
+    console.error('[AuthContext] No intern_users profile for auth user', userId, email)
+    return false
+  }, [])
 
   const refreshProfile = useCallback(async () => {
     if (user) await fetchProfile(user)
   }, [user, fetchProfile])
+
+  /**
+   * Phase 6.4 — Hard reject for users without an admin-provisioned
+   * intern_users row. Signs the user out and stashes a one-shot flag
+   * in sessionStorage so the next /login render can surface the reason.
+   */
+  const rejectAndSignOut = useCallback(async () => {
+    try {
+      sessionStorage.setItem(
+        'auth_no_profile',
+        'Your account was not provisioned by an admin. Please contact your team administrator.',
+      )
+    } catch { /* sessionStorage may be unavailable in private mode; ignore */ }
+    try { await supabase.auth.signOut() } catch { /* swallow */ }
+    setUser(null)
+    setSession(null)
+    setProfile(null)
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -170,10 +130,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
-        try { await fetchProfile(session.user) } catch (err) {
+        let ok = false
+        try { ok = await fetchProfile(session.user) } catch (err) {
           console.error('Failed to load profile on init:', err)
-          setProfile(buildFallbackProfile(session.user))
         }
+        if (!ok) await rejectAndSignOut()
       }
       setLoading(false)
     }).catch((err) => {
@@ -187,10 +148,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
-        try { await fetchProfile(session.user) } catch (err) {
+        let ok = false
+        try { ok = await fetchProfile(session.user) } catch (err) {
           console.error('Failed to load profile on auth change:', err)
-          setProfile(buildFallbackProfile(session.user))
         }
+        if (!ok) await rejectAndSignOut()
       } else {
         setProfile(null)
       }
@@ -202,7 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTimeout(timeout)
       subscription.unsubscribe()
     }
-  }, [buildFallbackProfile, fetchProfile])
+  }, [fetchProfile, rejectAndSignOut])
 
   const signIn = useCallback(async (email: string, password: string) => {
     const normalized = normalizeEmail(email)
