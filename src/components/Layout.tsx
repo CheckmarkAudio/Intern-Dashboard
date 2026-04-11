@@ -1,15 +1,48 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, type ComponentType } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import { useRouteAnnounce } from '../hooks/useRouteAnnounce'
 import ErrorBoundary from './ErrorBoundary'
+import type { LucideProps } from 'lucide-react'
 import {
   LayoutDashboard, Users, Calendar, Settings,
   LogOut, Menu, X, ChevronDown, ClipboardList, CheckSquare,
   FolderKanban, Mic, GitBranch, GraduationCap, BarChart3, Pencil,
   Target, Star, UsersRound, FileText,
 } from 'lucide-react'
+
+type NavLinkDef = {
+  to: string
+  icon: ComponentType<LucideProps>
+  label: string
+}
+
+/**
+ * Single nav entry in the sidebar. Lifts the link styling out of Layout so
+ * hover / active / focus states stay in one place, and so keyboard focus
+ * gets the gold `focus-ring` treatment automatically.
+ */
+function NavItem({ link, onNavigate }: { link: NavLinkDef; onNavigate: () => void }) {
+  return (
+    <NavLink
+      to={link.to}
+      end={link.to === '/'}
+      onClick={onNavigate}
+      className={({ isActive }) =>
+        [
+          'relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 focus-ring',
+          isActive
+            ? 'bg-white/[0.08] text-gold before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-5 before:rounded-r-full before:bg-gold'
+            : 'text-text-muted hover:bg-white/[0.04] hover:text-text',
+        ].join(' ')
+      }
+    >
+      <link.icon size={17} strokeWidth={2} aria-hidden="true" />
+      {link.label}
+    </NavLink>
+  )
+}
 
 const memberLinks = [
   { to: '/', icon: LayoutDashboard, label: 'Today' },
@@ -58,12 +91,7 @@ export default function Layout() {
     navigate('/login')
   }
 
-  const linkClass = ({ isActive }: { isActive: boolean }) =>
-    `relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-      isActive
-        ? 'bg-white/[0.08] text-gold before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-5 before:rounded-r-full before:bg-gold'
-        : 'text-text-muted hover:bg-white/[0.04] hover:text-text'
-    }`
+  const closeDrawer = () => setSidebarOpen(false)
 
   const sidebar = (
     <div className="flex flex-col h-full">
@@ -80,30 +108,22 @@ export default function Layout() {
       </div>
 
       <nav className="flex-1 px-3 pb-3 space-y-0.5 overflow-y-auto" aria-label="Main navigation">
-        <p className="px-3 pt-2 pb-2 text-[10px] font-semibold text-text-light uppercase tracking-widest">Menu</p>
+        <p className="px-3 pt-2 pb-2 text-label">Menu</p>
         {memberLinks.map(link => (
-          <NavLink
-            key={link.to}
-            to={link.to}
-            end={link.to === '/'}
-            className={linkClass}
-            onClick={() => setSidebarOpen(false)}
-          >
-            <link.icon size={17} strokeWidth={2} aria-hidden="true" />
-            {link.label}
-          </NavLink>
+          <NavItem key={link.to} link={link} onNavigate={closeDrawer} />
         ))}
 
         {isAdmin && (
           <>
             <div className="pt-4 pb-1">
               <button
+                type="button"
                 onClick={() => setAdminExpanded(!adminExpanded)}
-                className="flex items-center gap-2 px-3 w-full"
+                className="flex items-center gap-2 px-3 w-full focus-ring rounded-md"
                 aria-expanded={adminExpanded}
                 aria-controls="admin-nav"
               >
-                <p className="text-[10px] font-semibold text-text-light uppercase tracking-widest">Admin</p>
+                <p className="text-label">Admin</p>
                 <ChevronDown
                   size={12}
                   aria-hidden="true"
@@ -114,15 +134,7 @@ export default function Layout() {
             {adminExpanded && (
               <div id="admin-nav" className="space-y-0.5 animate-slide-up">
                 {adminLinks.map(link => (
-                  <NavLink
-                    key={link.to}
-                    to={link.to}
-                    className={linkClass}
-                    onClick={() => setSidebarOpen(false)}
-                  >
-                    <link.icon size={17} strokeWidth={2} aria-hidden="true" />
-                    {link.label}
-                  </NavLink>
+                  <NavItem key={link.to} link={link} onNavigate={closeDrawer} />
                 ))}
               </div>
             )}
@@ -131,8 +143,9 @@ export default function Layout() {
       </nav>
 
       <button
+        type="button"
         onClick={handleSignOut}
-        className="p-3 mx-3 mb-3 rounded-xl bg-surface-alt border border-border hover:bg-surface-hover transition-all cursor-pointer w-[calc(100%-1.5rem)] text-left"
+        className="p-3 mx-3 mb-3 rounded-xl bg-surface-alt border border-border hover:bg-surface-hover transition-all cursor-pointer w-[calc(100%-1.5rem)] text-left focus-ring"
         aria-label="Sign out"
       >
         <div className="flex items-center gap-3">

@@ -635,20 +635,6 @@ export default function TeamManager() {
         </div>
       )}
 
-      {/* (Legacy submit block below is replaced by the Button above \u2014 this comment exists so the
-          following Edit can anchor off the remaining legacy submit-button tail and delete it.) */}
-      {false && (<parameter>
-</invoke>
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gold hover:bg-gold-muted text-black text-sm font-semibold disabled:opacity-50 transition-all">
-                  {submitting ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Save size={16} aria-hidden="true" />}
-                  {editingMember ? 'Update Member' : 'Add Member'}
-                </button>
-              </div>
-            </form>
-          </aside>
-        </div>
-      )}
-
       <ConfirmModal
         open={confirmState.open}
         title="Remove Team Member"

@@ -4,9 +4,12 @@ import { supabase } from '../lib/supabase'
 import { localDateKey } from '../lib/dates'
 import { useToast } from '../components/Toast'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import {
+  Button, Textarea, Select, Input, EmptyState, PageHeader,
+} from '../components/ui'
 import type { DailyNote, TeamMember } from '../types'
 import {
-  Plus, Send, MessageSquare, Calendar, ChevronDown, X, Loader2,
+  Plus, Send, MessageSquare, Calendar, X, FileText,
 } from 'lucide-react'
 
 const DEFAULT_PROMPTS = [
@@ -121,41 +124,37 @@ export default function DailyNotes() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Daily Notes</h1>
-          <p className="text-text-muted mt-1">Track your daily progress and accomplishments</p>
-        </div>
-        {!isAdmin && (
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gold hover:bg-gold-muted text-black font-semibold transition-all"
-          >
-            {showForm ? <X size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
-            {showForm ? 'Cancel' : 'New Note'}
-          </button>
-        )}
-      </div>
+      <PageHeader
+        icon={FileText}
+        title="Daily Notes"
+        subtitle="Track your daily progress and accomplishments."
+        actions={
+          !isAdmin ? (
+            <Button
+              variant="primary"
+              onClick={() => setShowForm(!showForm)}
+              iconLeft={showForm ? <X size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
+            >
+              {showForm ? 'Cancel' : 'New Note'}
+            </Button>
+          ) : undefined
+        }
+      />
 
       {/* Admin filter */}
       {isAdmin && teamMembers.length > 0 && (
-        <div className="flex items-center gap-3">
-          <label className="text-sm font-medium text-text-muted" htmlFor="notes-member-filter">Filter by member:</label>
-          <div className="relative">
-            <select
-              id="notes-member-filter"
-              value={selectedMember}
-              onChange={e => setSelectedMember(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2 rounded-lg border border-border bg-surface text-sm"
-            >
-              <option value="all">All Members</option>
-              {teamMembers.map(m => (
-                <option key={m.id} value={m.id}>{m.display_name}</option>
-              ))}
-            </select>
-            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" aria-hidden="true" />
-          </div>
-        </div>
+        <Select
+          id="notes-member-filter"
+          label="Filter by member"
+          value={selectedMember}
+          onChange={e => setSelectedMember(e.target.value)}
+          wrapperClassName="max-w-xs"
+        >
+          <option value="all">All Members</option>
+          {teamMembers.map(m => (
+            <option key={m.id} value={m.id}>{m.display_name}</option>
+          ))}
+        </Select>
       )}
 
       {/* New Note Form */}
@@ -166,28 +165,25 @@ export default function DailyNotes() {
             Daily Note — {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </h2>
           {DEFAULT_PROMPTS.map(prompt => (
-            <div key={prompt.id}>
-              <label className="block text-sm font-medium mb-1.5" htmlFor={`note-${prompt.id}`}>{prompt.label}</label>
-              <textarea
-                id={`note-${prompt.id}`}
-                value={formData[prompt.id] || ''}
-                onChange={e => setFormData({ ...formData, [prompt.id]: e.target.value })}
-                rows={3}
-                className="w-full px-3 py-2.5 rounded-lg border border-border bg-surface text-sm resize-none"
-                placeholder="Type your answer..."
-              />
-            </div>
+            <Textarea
+              key={prompt.id}
+              id={`note-${prompt.id}`}
+              label={prompt.label}
+              rows={3}
+              placeholder="Type your answer..."
+              value={formData[prompt.id] || ''}
+              onChange={e => setFormData({ ...formData, [prompt.id]: e.target.value })}
+            />
           ))}
           <div className="flex justify-end">
-            <button
+            <Button
               type="submit"
-              disabled={submitting}
-              aria-busy={submitting}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gold hover:bg-gold-muted text-black font-semibold transition-all disabled:opacity-50"
+              variant="primary"
+              loading={submitting}
+              iconLeft={!submitting ? <Send size={16} aria-hidden="true" /> : undefined}
             >
-              {submitting ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Send size={16} aria-hidden="true" />}
               Submit Note
-            </button>
+            </Button>
           </div>
         </form>
       )}
@@ -195,9 +191,26 @@ export default function DailyNotes() {
       {/* Notes List */}
       <div className="space-y-4">
         {filteredNotes.length === 0 ? (
-          <div className="bg-surface rounded-2xl border border-border p-8 text-center text-text-muted">
-            No notes yet. {!isAdmin && 'Click "New Note" to submit your first daily note.'}
-          </div>
+          <EmptyState
+            icon={FileText}
+            title="No notes yet"
+            description={
+              isAdmin
+                ? 'Team members haven\u2019t submitted any notes yet.'
+                : 'Click \u201cNew Note\u201d to submit your first daily note.'
+            }
+            action={
+              !isAdmin ? (
+                <Button
+                  variant="primary"
+                  onClick={() => setShowForm(true)}
+                  iconLeft={<Plus size={16} aria-hidden="true" />}
+                >
+                  New Note
+                </Button>
+              ) : undefined
+            }
+          />
         ) : (
           filteredNotes.map(note => {
             const entries = parseContent(note.content)
@@ -238,36 +251,36 @@ export default function DailyNotes() {
                 {isAdmin && !note.manager_reply && (
                   <div className="px-5 py-3 border-t border-border">
                     {replyingTo === note.id ? (
-                      <div className="flex gap-2">
-                        <input
+                      <div className="flex gap-2 items-start">
+                        <Input
                           type="text"
+                          autoFocus
+                          placeholder="Write a reply..."
+                          aria-label="Reply to note"
                           value={replyText}
                           onChange={e => setReplyText(e.target.value)}
-                          placeholder="Write a reply..."
-                          className="flex-1 px-3 py-2 rounded-lg border border-border text-sm"
-                          autoFocus
-                          aria-label="Reply to note"
+                          wrapperClassName="flex-1"
                         />
-                        <button
-                          onClick={() => handleReply(note.id)}
-                          className="px-3 py-2 rounded-lg bg-gold hover:bg-gold-muted text-black font-semibold text-sm"
-                        >
+                        <Button variant="primary" size="sm" onClick={() => handleReply(note.id)}>
                           Send
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
                           onClick={() => { setReplyingTo(null); setReplyText('') }}
-                          className="px-3 py-2 rounded-lg border border-border text-sm hover:bg-surface-hover"
                         >
                           Cancel
-                        </button>
+                        </Button>
                       </div>
                     ) : (
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setReplyingTo(note.id)}
-                        className="flex items-center gap-1.5 text-sm text-text-muted hover:text-gold"
+                        iconLeft={<MessageSquare size={14} aria-hidden="true" />}
                       >
-                        <MessageSquare size={14} aria-hidden="true" /> Reply
-                      </button>
+                        Reply
+                      </Button>
                     )}
                   </div>
                 )}
