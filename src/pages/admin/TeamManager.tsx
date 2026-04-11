@@ -495,114 +495,150 @@ export default function TeamManager() {
       {showForm && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeForm} />
-          <aside className="absolute right-0 top-0 h-full w-full max-w-lg bg-surface border-l border-border shadow-2xl flex flex-col animate-slide-in"
-            style={{ animationDirection: 'normal' }}
+          <aside
+            className="absolute right-0 top-0 h-full w-full max-w-lg bg-surface border-l border-border shadow-2xl flex flex-col animate-slide-in"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="team-manager-panel-title">
+            aria-labelledby="team-manager-panel-title"
+          >
             <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
-              <h2 id="team-manager-panel-title" className="font-semibold text-lg">{editingMember ? 'Edit Team Member' : 'Add Team Member'}</h2>
-              <button onClick={closeForm} className="p-1.5 rounded-lg hover:bg-surface-hover text-text-muted" aria-label="Close">
+              <h2 id="team-manager-panel-title" className="font-semibold text-lg">
+                {editingMember ? 'Edit Team Member' : 'Add Team Member'}
+              </h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={closeForm}
+                aria-label="Close"
+                className="!p-1.5"
+              >
                 <X size={18} aria-hidden="true" />
-              </button>
+              </Button>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-              <div className="p-6 space-y-5">
-                <div>
-                  <label htmlFor="team-member-display-name" className="block text-sm font-medium mb-1.5 text-text-muted">Full Name *</label>
-                  <input id="team-member-display-name" required value={formData.display_name}
-                    onChange={e => setFormData({ ...formData, display_name: e.target.value })}
-                    className="w-full px-3 py-2.5 rounded-lg border border-border text-sm"
-                    placeholder="Jane Smith" autoFocus />
-                </div>
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto flex flex-col">
+              <div className="p-6 space-y-5 flex-1">
+                <Input
+                  id="team-member-display-name"
+                  label="Full Name"
+                  required
+                  autoFocus
+                  placeholder="Jane Smith"
+                  value={formData.display_name}
+                  onChange={e => setFormData({ ...formData, display_name: e.target.value })}
+                />
 
-                <div>
-                  <label htmlFor="team-member-email" className="block text-sm font-medium mb-1.5 text-text-muted">Email {editingMember ? '' : '*'}</label>
-                  <input id="team-member-email" type="email" required={!editingMember} disabled={!!editingMember}
-                    value={editingMember ? editingMember.email : formData.email}
-                    onChange={e => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-3 py-2.5 rounded-lg border border-border text-sm disabled:bg-surface-alt disabled:text-text-muted"
-                    placeholder="jane@example.com" />
-                </div>
+                <Input
+                  id="team-member-email"
+                  label="Email"
+                  type="email"
+                  required={!editingMember}
+                  disabled={!!editingMember}
+                  placeholder="jane@example.com"
+                  hint={
+                    editingMember
+                      ? 'Email is immutable after a member is created.'
+                      : 'Will be normalized to lowercase on save.'
+                  }
+                  value={editingMember ? (editingMember.email ?? '') : formData.email}
+                  onChange={e => setFormData({ ...formData, email: e.target.value })}
+                />
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="team-member-position" className="block text-sm font-medium mb-1.5 text-text-muted">Position</label>
-                    <select id="team-member-position" value={formData.position}
-                      onChange={e => setFormData({ ...formData, position: e.target.value })}
-                      className="w-full px-3 py-2.5 rounded-lg border border-border text-sm">
-                      {POSITIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-                      <option value="custom">Custom Position...</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="team-member-role" className="block text-sm font-medium mb-1.5 text-text-muted">Role</label>
-                    <select id="team-member-role" value={formData.role}
-                      onChange={e => setFormData({ ...formData, role: e.target.value as 'admin' | 'member' })}
-                      className="w-full px-3 py-2.5 rounded-lg border border-border text-sm">
-                      <option value="member">Member</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </div>
+                  <Select
+                    id="team-member-position"
+                    label="Position"
+                    value={formData.position}
+                    onChange={e => setFormData({ ...formData, position: e.target.value })}
+                  >
+                    {POSITIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                    <option value="custom">Custom Position...</option>
+                  </Select>
+                  <Select
+                    id="team-member-role"
+                    label="Role"
+                    value={formData.role}
+                    onChange={e => setFormData({ ...formData, role: e.target.value as 'admin' | 'member' })}
+                  >
+                    <option value="member">Member</option>
+                    <option value="admin">Admin</option>
+                  </Select>
                 </div>
 
                 {formData.position === 'custom' && (
-                  <div>
-                    <label htmlFor="team-member-custom-position" className="block text-sm font-medium mb-1.5 text-text-muted">Custom Position Name</label>
-                    <input id="team-member-custom-position" value={customPosition} onChange={e => setCustomPosition(e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-lg border border-border text-sm"
-                      placeholder="e.g. Session Musician" />
-                  </div>
+                  <Input
+                    id="team-member-custom-position"
+                    label="Custom Position Name"
+                    placeholder="e.g. Session Musician"
+                    value={customPosition}
+                    onChange={e => setCustomPosition(e.target.value)}
+                  />
                 )}
 
-                <div>
-                  <label htmlFor="team-member-managed-by" className="block text-sm font-medium mb-1.5 text-text-muted">Reports To</label>
-                  <select id="team-member-managed-by" value={formData.managed_by}
-                    onChange={e => setFormData({ ...formData, managed_by: e.target.value })}
-                    className="w-full px-3 py-2.5 rounded-lg border border-border text-sm">
-                    <option value="">No Manager (Top Level)</option>
-                    {adminsAndOwners
-                      .filter(m => m.id !== editingMember?.id)
-                      .map(m => (
-                        <option key={m.id} value={m.id}>{m.display_name} ({getPositionLabel(m.position ?? 'intern')})</option>
-                      ))}
-                  </select>
-                </div>
+                <Select
+                  id="team-member-managed-by"
+                  label="Reports To"
+                  value={formData.managed_by}
+                  onChange={e => setFormData({ ...formData, managed_by: e.target.value })}
+                >
+                  <option value="">No Manager (Top Level)</option>
+                  {adminsAndOwners
+                    .filter(m => m.id !== editingMember?.id)
+                    .map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.display_name} ({getPositionLabel(m.position ?? 'intern')})
+                      </option>
+                    ))}
+                </Select>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="team-member-phone" className="block text-sm font-medium mb-1.5 text-text-muted">Phone</label>
-                    <input id="team-member-phone" value={formData.phone}
-                      onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-3 py-2.5 rounded-lg border border-border text-sm"
-                      placeholder="(555) 123-4567" />
-                  </div>
-                  <div>
-                    <label htmlFor="team-member-start-date" className="block text-sm font-medium mb-1.5 text-text-muted">Start Date</label>
-                    <input id="team-member-start-date" type="date" value={formData.start_date}
-                      onChange={e => setFormData({ ...formData, start_date: e.target.value })}
-                      className="w-full px-3 py-2.5 rounded-lg border border-border text-sm" />
-                  </div>
+                  <Input
+                    id="team-member-phone"
+                    label="Phone"
+                    placeholder="(555) 123-4567"
+                    value={formData.phone}
+                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                  />
+                  <Input
+                    id="team-member-start-date"
+                    label="Start Date"
+                    type="date"
+                    value={formData.start_date}
+                    onChange={e => setFormData({ ...formData, start_date: e.target.value })}
+                  />
                 </div>
 
-                <div>
-                  <label htmlFor="team-member-status" className="block text-sm font-medium mb-1.5 text-text-muted">Status</label>
-                  <select id="team-member-status" value={formData.status}
-                    onChange={e => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' })}
-                    className="w-full px-3 py-2.5 rounded-lg border border-border text-sm">
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                </div>
+                <Select
+                  id="team-member-status"
+                  label="Status"
+                  value={formData.status}
+                  onChange={e => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' })}
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </Select>
               </div>
 
               <div className="sticky bottom-0 flex items-center justify-end gap-2 px-6 py-4 border-t border-border bg-surface">
-                <button type="button" onClick={closeForm}
-                  className="px-4 py-2.5 rounded-xl border border-border text-sm font-medium hover:bg-surface-hover transition-colors">
-                  Cancel
-                </button>
-                <button type="submit" disabled={submitting}
+                <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  loading={submitting}
+                  iconLeft={!submitting ? <Save size={16} aria-hidden="true" /> : undefined}
+                >
+                  {editingMember ? 'Update Member' : 'Add Member'}
+                </Button>
+              </div>
+            </form>
+          </aside>
+        </div>
+      )}
+
+      {/* (Legacy submit block below is replaced by the Button above \u2014 this comment exists so the
+          following Edit can anchor off the remaining legacy submit-button tail and delete it.) */}
+      {false && (<parameter>
+</invoke>
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gold hover:bg-gold-muted text-black text-sm font-semibold disabled:opacity-50 transition-all">
                   {submitting ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Save size={16} aria-hidden="true" />}
                   {editingMember ? 'Update Member' : 'Add Member'}
