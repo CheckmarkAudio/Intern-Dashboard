@@ -24,7 +24,7 @@ export default function Reviews() {
   const [submitting, setSubmitting] = useState(false)
   const [selectedMember, setSelectedMember] = useState('')
   const [reviewScores, setReviewScores] = useState<Record<string, number>>({})
-  const [feedback, setFeedback] = useState('')
+  const [notes, setNotes] = useState('')
 
   const loadData = useCallback(async () => {
     if (!profile) { setLoading(false); return }
@@ -32,7 +32,7 @@ export default function Reviews() {
       if (isAdmin) {
         const [usersRes, reviewsRes, scoresRes] = await Promise.all([
           supabase.from('intern_users').select('*'),
-          supabase.from('intern_performance_reviews').select('*').order('review_date', { ascending: false }),
+          supabase.from('intern_performance_reviews').select('*').order('created_at', { ascending: false }),
           supabase.from('intern_performance_scores').select('*'),
         ])
         if (usersRes.data) setTeamMembers(usersRes.data as TeamMember[])
@@ -40,7 +40,7 @@ export default function Reviews() {
         if (scoresRes.data) setScores(scoresRes.data as PerformanceScore[])
       } else {
         const [reviewsRes, scoresRes] = await Promise.all([
-          supabase.from('intern_performance_reviews').select('*').eq('intern_id', profile.id).order('review_date', { ascending: false }),
+          supabase.from('intern_performance_reviews').select('*').eq('intern_id', profile.id).order('created_at', { ascending: false }),
           supabase.from('intern_performance_scores').select('*'),
         ])
         if (reviewsRes.data) setReviews(reviewsRes.data as PerformanceReview[])
@@ -64,10 +64,11 @@ export default function Reviews() {
 
     const { data: review, error } = await supabase.from('intern_performance_reviews').insert({
       intern_id: selectedMember,
-      reviewer: profile.display_name,
-      review_date: localDateKey(),
+      reviewer_id: profile.id,
+      review_period: localDateKey(),
       overall_score: overall,
-      feedback,
+      notes,
+      status: 'published',
     }).select().single()
 
     if (error || !review) {
@@ -94,12 +95,13 @@ export default function Reviews() {
     setShowForm(false)
     setSelectedMember('')
     setReviewScores({})
-    setFeedback('')
+    setNotes('')
     setSubmitting(false)
     loadData()
   }
 
   const getMemberName = (id: string) => teamMembers.find(m => m.id === id)?.display_name ?? 'Team Member'
+  const getReviewerName = (id: string) => teamMembers.find(m => m.id === id)?.display_name ?? 'Reviewer'
   const getReviewScores = (reviewId: string) => scores.filter(s => s.review_id === reviewId)
 
   const renderStars = (score: number, editable = false, category = '') => {
@@ -190,8 +192,8 @@ export default function Reviews() {
             </div>
           </div>
           <div>
-            <label htmlFor="review-feedback" className="block text-sm font-medium mb-1.5">Feedback</label>
-            <textarea id="review-feedback" value={feedback} onChange={e => setFeedback(e.target.value)} rows={4}
+            <label htmlFor="review-notes" className="block text-sm font-medium mb-1.5">Notes</label>
+            <textarea id="review-notes" value={notes} onChange={e => setNotes(e.target.value)} rows={4}
               className="w-full px-3 py-2.5 rounded-lg border border-border text-sm resize-none"
               placeholder="Overall feedback and areas for growth..." />
           </div>
@@ -226,14 +228,14 @@ export default function Reviews() {
                         {isAdmin ? getMemberName(review.intern_id) : 'Your Review'}
                       </p>
                       <p className="text-xs text-text-muted flex items-center gap-1">
-                        <Calendar size={11} aria-hidden="true" /> {review.review_date} · by {review.reviewer}
+                        <Calendar size={11} aria-hidden="true" /> {review.review_period} · by {getReviewerName(review.reviewer_id)}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-lg font-bold">{review.overall_score}</span>
+                    <span className="text-lg font-bold">{review.overall_score ?? 0}</span>
                     <span className="text-xs text-text-muted">/5</span>
-                    {renderStars(Math.round(review.overall_score))}
+                    {renderStars(Math.round(review.overall_score ?? 0))}
                   </div>
                 </div>
                 <div className="p-5">
@@ -247,10 +249,10 @@ export default function Reviews() {
                       ))}
                     </div>
                   )}
-                  {review.feedback && (
+                  {review.notes && (
                     <div>
-                      <p className="text-xs font-semibold text-text-muted uppercase mb-1">Feedback</p>
-                      <p className="text-sm whitespace-pre-wrap">{review.feedback}</p>
+                      <p className="text-xs font-semibold text-text-muted uppercase mb-1">Notes</p>
+                      <p className="text-sm whitespace-pre-wrap">{review.notes}</p>
                     </div>
                   )}
                 </div>

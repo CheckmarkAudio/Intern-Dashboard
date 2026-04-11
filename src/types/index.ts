@@ -49,10 +49,13 @@ export interface LeadActivity {
 export interface PerformanceReview {
   id: string
   intern_id: string
-  reviewer: string
-  review_date: string
-  overall_score: number
-  feedback?: string
+  reviewer_id: string
+  review_period: string
+  overall_score: number | null
+  notes?: string | null
+  status?: string
+  created_at?: string
+  published_at?: string | null
   scores?: PerformanceScore[]
 }
 
