@@ -78,12 +78,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const seeded = emailMatch as TeamMember & {
           position?: string | null
           team_id?: string | null
-          avatar_url?: string | null
           phone?: string | null
           start_date?: string | null
           status?: string | null
           managed_by?: string | null
         }
+        // NOTE: we intentionally do not copy avatar_url — that column exists
+        // in older migration.sql documentation but not in the live schema.
         const copied = {
           id: userId,
           email,
@@ -91,7 +92,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: seeded.role,
           position: seeded.position ?? null,
           team_id: seeded.team_id ?? null,
-          avatar_url: seeded.avatar_url ?? null,
           phone: seeded.phone ?? null,
           start_date: seeded.start_date ?? null,
           status: seeded.status ?? 'active',
@@ -211,14 +211,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (existing) {
         // Pre-seeded profile: copy its fields into a new row keyed by the
-        // auth uid. We CANNOT update the existing row's `id` — it's a PK
-        // referenced by FKs across the schema and blocked by the RLS
-        // WITH CHECK clause. See the matching logic in fetchProfile() for
-        // the long-form explanation.
+        // auth uid. See fetchProfile() for the long-form explanation.
         const seeded = existing as TeamMember & {
           position?: string | null
           team_id?: string | null
-          avatar_url?: string | null
           phone?: string | null
           start_date?: string | null
           status?: string | null
@@ -231,7 +227,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: seeded.role,
           position: seeded.position ?? null,
           team_id: seeded.team_id ?? null,
-          avatar_url: seeded.avatar_url ?? null,
           phone: seeded.phone ?? null,
           start_date: seeded.start_date ?? null,
           status: seeded.status ?? 'active',

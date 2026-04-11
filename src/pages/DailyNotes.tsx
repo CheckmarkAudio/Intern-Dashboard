@@ -63,7 +63,6 @@ export default function DailyNotes() {
       intern_id: profile.id,
       note_date: localDateKey(),
       content,
-      focus_areas: [],
       submitted_at: new Date().toISOString(),
     })
 
