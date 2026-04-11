@@ -27,11 +27,13 @@ type MemberForm = {
   display_name: string; email: string; role: 'admin' | 'member'
   position: string; phone: string; start_date: string; status: 'active' | 'inactive'
   managed_by: string
+  default_password: string
 }
 
 const EMPTY_MEMBER: MemberForm = {
   display_name: '', email: '', role: 'member', position: 'intern',
   phone: '', start_date: '', status: 'active', managed_by: '',
+  default_password: '',
 }
 
 export default function TeamManager() {
@@ -105,24 +107,39 @@ export default function TeamManager() {
         setSubmitting(false)
         return
       }
-      const { error } = await supabase.from('intern_users').insert({
-        id: crypto.randomUUID(),
-        display_name: formData.display_name.trim(),
-        email,
-        role: formData.role,
-        position,
-        phone: formData.phone.trim() || null,
-        start_date: formData.start_date || null,
-        status: formData.status,
-        managed_by: formData.managed_by || null,
-      })
-      if (error) {
-        console.error('[TeamManager] Add member failed:', error)
-        toast(error.message || 'Failed to add member', 'error')
+      if (formData.default_password.length < 8) {
+        toast('Default password must be at least 8 characters', 'error')
         setSubmitting(false)
         return
       }
-      toast('Member added')
+
+      // Admin-create-member Edge Function: creates the auth user (with the
+      // admin-supplied default password) AND the intern_users row atomically.
+      // See supabase/functions/admin-create-member/index.ts.
+      const { data: result, error } = await supabase.functions.invoke<
+        { ok: boolean; profile?: TeamMember; error?: string }
+      >('admin-create-member', {
+        body: {
+          email,
+          display_name: formData.display_name.trim(),
+          default_password: formData.default_password,
+          role: formData.role,
+          position,
+          phone: formData.phone.trim() || null,
+          start_date: formData.start_date || null,
+          status: formData.status,
+          managed_by: formData.managed_by || null,
+        },
+      })
+
+      if (error || !result?.ok) {
+        const msg = result?.error || error?.message || 'Failed to add member'
+        console.error('[TeamManager] admin-create-member failed:', msg)
+        toast(msg, 'error')
+        setSubmitting(false)
+        return
+      }
+      toast(`Member added — share the default password with them`)
     }
 
     closeForm()
@@ -156,6 +173,8 @@ export default function TeamManager() {
       start_date: member.start_date ?? '',
       status: (member.status ?? 'active') as 'active' | 'inactive',
       managed_by: member.managed_by ?? '',
+      // default_password is only meaningful for new-member creation; not editable here.
+      default_password: '',
     })
     if (!knownPosition) setCustomPosition(member.position ?? '')
     setShowForm(true)
@@ -543,6 +562,20 @@ export default function TeamManager() {
                   value={editingMember ? (editingMember.email ?? '') : formData.email}
                   onChange={e => setFormData({ ...formData, email: e.target.value })}
                 />
+
+                {!editingMember && (
+                  <Input
+                    id="team-member-default-password"
+                    label="Default Password"
+                    type="text"
+                    required
+                    minLength={8}
+                    placeholder="Min 8 characters"
+                    hint="Share this with the member. They'll be prompted to change it on first sign-in."
+                    value={formData.default_password}
+                    onChange={e => setFormData({ ...formData, default_password: e.target.value })}
+                  />
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <Select

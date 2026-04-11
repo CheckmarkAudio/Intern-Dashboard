@@ -177,6 +177,32 @@ export interface Session {
   created_at: string
 }
 
+// ─── Calendar event (Phase 5.5) ──────────────────────────────────────
+// A unified shape for anything time-sensitive on the per-member
+// calendar. Sessions, meetings, and the weekly focus-area day labels
+// all flatten into this so CalendarWeek has one render path.
+
+export type CalendarEventKind = 'session' | 'meeting' | 'schedule_focus'
+
+export interface CalendarEvent {
+  id: string
+  kind: CalendarEventKind
+  title: string
+  /** yyyy-mm-dd */
+  date: string
+  /** "HH:MM:SS" or "HH:MM"; null/undefined = all-day (rendered in header row) */
+  start_time?: string | null
+  end_time?: string | null
+  /** The team member this event belongs to, if any. Null = team-wide. */
+  member_id?: string | null
+  /** Human label for the person shown on the event chip in merged views. */
+  member_name?: string | null
+  /** Deep link back to the source record (e.g. /sessions) when clicked. */
+  href?: string
+  /** Optional free-form subtitle ("Studio A", "Room 2"). */
+  subtitle?: string | null
+}
+
 export interface ArtistPipelineEntry {
   id: string
   artist_name: string

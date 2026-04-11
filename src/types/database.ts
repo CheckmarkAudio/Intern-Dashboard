@@ -1001,6 +1001,92 @@ export type Database = {
           },
         ]
       }
+      task_edit_requests: {
+        Row: {
+          apply_to_template: boolean
+          change_type: Database["public"]["Enums"]["task_edit_change_type"]
+          created_at: string
+          id: string
+          instance_id: string
+          item_id: string | null
+          previous_text: string | null
+          proposed_category: string | null
+          proposed_text: string | null
+          reject_reason: string | null
+          requested_at: string
+          requested_by: string
+          reviewed_at: string | null
+          reviewer_id: string | null
+          status: Database["public"]["Enums"]["task_edit_status"]
+          team_id: string | null
+        }
+        Insert: {
+          apply_to_template?: boolean
+          change_type: Database["public"]["Enums"]["task_edit_change_type"]
+          created_at?: string
+          id?: string
+          instance_id: string
+          item_id?: string | null
+          previous_text?: string | null
+          proposed_category?: string | null
+          proposed_text?: string | null
+          reject_reason?: string | null
+          requested_at?: string
+          requested_by: string
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          status?: Database["public"]["Enums"]["task_edit_status"]
+          team_id?: string | null
+        }
+        Update: {
+          apply_to_template?: boolean
+          change_type?: Database["public"]["Enums"]["task_edit_change_type"]
+          created_at?: string
+          id?: string
+          instance_id?: string
+          item_id?: string | null
+          previous_text?: string | null
+          proposed_category?: string | null
+          proposed_text?: string | null
+          reject_reason?: string | null
+          requested_at?: string
+          requested_by?: string
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          status?: Database["public"]["Enums"]["task_edit_status"]
+          team_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_edit_requests_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "intern_checklist_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_edit_requests_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "intern_checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_edit_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "intern_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_edit_requests_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "intern_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_positions: {
         Row: {
           color: string | null
@@ -1111,6 +1197,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_task_edit_request: {
+        Args: { p_apply_to_template?: boolean; p_request_id: string }
+        Returns: undefined
+      }
+      publish_daily_checklist: {
+        Args: {
+          p_target_mode: string
+          p_target_position?: string | null
+          p_target_ids?: string[] | null
+          p_replace?: boolean
+        }
+        Returns: Json
+      }
       get_direct_reports: { Args: { manager: string }; Returns: string[] }
       get_my_team_id: { Args: never; Returns: string }
       intern_generate_checklist: {
@@ -1121,7 +1220,8 @@ export type Database = {
       is_team_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      task_edit_change_type: "add" | "rename" | "delete"
+      task_edit_status: "pending" | "approved" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1248,6 +1348,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      task_edit_change_type: ["add", "rename", "delete"],
+      task_edit_status: ["pending", "approved", "rejected"],
+    },
   },
 } as const

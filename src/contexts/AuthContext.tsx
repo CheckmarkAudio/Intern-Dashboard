@@ -11,7 +11,6 @@ interface AuthContextType {
   loading: boolean
   isAdmin: boolean
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
-  signUp: (email: string, password: string, displayName: string) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
 }
@@ -211,71 +210,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error as Error | null }
   }, [])
 
-  const signUp = useCallback(async (email: string, password: string, displayName: string) => {
-    const normalized = normalizeEmail(email)
-    const { data, error } = await supabase.auth.signUp({ email: normalized, password })
-    if (error) return { error: error as Error | null }
-
-    if (data.user) {
-      // Does a pre-seeded intern_users row already exist for this email?
-      const { data: existing } = await supabase
-        .from('intern_users')
-        .select('*')
-        .ilike('email', normalized)
-        .maybeSingle()
-
-      if (existing && existing.id !== data.user.id) {
-        // Pre-seeded profile. Prefer a cascade-safe PK update so every child
-        // table (KPIs, checklists, reviews, etc.) stays attached to the user.
-        // If the update fails, fall back to insert-copy so the user still
-        // ends up with a working profile — just without historical data.
-        const { error: updateErr } = await supabase
-          .from('intern_users')
-          .update({
-            id: data.user.id,
-            email: normalized,
-            display_name: displayName || existing.display_name,
-          })
-          .eq('id', existing.id)
-        if (!updateErr) {
-          // Done — cascade has done its job.
-          return { error: null }
-        }
-        console.error('[AuthContext] signUp PK-relink failed, falling back to insert-copy:', updateErr.message, updateErr.code)
-
-        const seeded = existing as TeamMember & {
-          position?: string | null
-          team_id?: string | null
-          phone?: string | null
-          start_date?: string | null
-          status?: string | null
-          managed_by?: string | null
-        }
-        const copyErr = (await supabase.from('intern_users').insert({
-          id: data.user.id,
-          email: normalized,
-          display_name: displayName || seeded.display_name,
-          role: seeded.role,
-          position: seeded.position ?? null,
-          team_id: seeded.team_id ?? null,
-          phone: seeded.phone ?? null,
-          start_date: seeded.start_date ?? null,
-          status: seeded.status ?? 'active',
-          managed_by: seeded.managed_by ?? null,
-        })).error
-        if (copyErr) console.error('[AuthContext] signUp seed-copy failed:', copyErr.message, copyErr.code)
-      } else if (!existing) {
-        const { error: insertErr } = await supabase.from('intern_users').insert({
-          id: data.user.id,
-          email: normalized,
-          display_name: displayName,
-          role: 'member',
-        })
-        if (insertErr) console.error('[AuthContext] signUp profile insert failed:', insertErr.message, insertErr.code)
-      }
-    }
-    return { error: null }
-  }, [])
+  // NOTE: `signUp` was intentionally removed in Phase 5.1. Self-signup is
+  // disabled on the Supabase dashboard (Auth → Providers → Email), and all
+  // new accounts are created server-side via the `admin-create-member`
+  // Edge Function invoked by the admin-only `TeamManager` page. Removing
+  // the method from this interface gives us a compile-time guarantee that
+  // no future code path can accidentally re-enable self-signup from the
+  // client.
 
   const signOut = useCallback(async () => {
     try { await supabase.auth.signOut() } catch {}
@@ -291,10 +232,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     isAdmin: profile?.role === 'admin',
     signIn,
-    signUp,
     signOut,
     refreshProfile,
-  }), [user, profile, session, loading, signIn, signUp, signOut, refreshProfile])
+  }), [user, profile, session, loading, signIn, signOut, refreshProfile])
 
   return (
     <AuthContext.Provider value={value}>

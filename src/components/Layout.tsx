@@ -6,7 +6,7 @@ import { useRouteAnnounce } from '../hooks/useRouteAnnounce'
 import ErrorBoundary from './ErrorBoundary'
 import type { LucideProps } from 'lucide-react'
 import {
-  LayoutDashboard, Users, Calendar, Settings,
+  LayoutDashboard, Users, Calendar, CalendarDays, Settings,
   LogOut, Menu, X, ChevronDown, ClipboardList, CheckSquare,
   FolderKanban, Mic, GitBranch, GraduationCap, BarChart3, Pencil,
   Target, Star, UsersRound, FileText,
@@ -49,6 +49,7 @@ const memberLinks = [
   { to: '/daily', icon: ClipboardList, label: 'Daily Tasks' },
   { to: '/notes', icon: FileText, label: 'Daily Notes' },
   { to: '/schedule', icon: Calendar, label: 'Schedule' },
+  { to: '/calendar', icon: CalendarDays, label: 'Calendar' },
   { to: '/kpis', icon: Target, label: 'My KPIs' },
   { to: '/projects', icon: FolderKanban, label: 'Projects' },
   { to: '/sessions', icon: Mic, label: 'Sessions' },
@@ -60,6 +61,7 @@ const memberLinks = [
 ]
 
 const adminLinks = [
+  { to: '/admin', icon: UsersRound, label: 'Team Hub' },
   { to: '/admin/my-team', icon: UsersRound, label: 'My Team' },
   { to: '/admin/team', icon: Users, label: 'Team Manager' },
   { to: '/admin/templates', icon: ClipboardList, label: 'Templates' },
@@ -142,23 +144,41 @@ export default function Layout() {
         )}
       </nav>
 
-      <button
-        type="button"
-        onClick={handleSignOut}
-        className="p-3 mx-3 mb-3 rounded-xl bg-surface-alt border border-border hover:bg-surface-hover transition-all cursor-pointer w-[calc(100%-1.5rem)] text-left focus-ring"
-        aria-label="Sign out"
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-gold/15 text-gold flex items-center justify-center text-xs font-bold" aria-hidden="true">
+      {/* Account card — split into info area + explicit sign-out button so
+          clicking the avatar/name to check who you're signed in as doesn't
+          log you out. The email is always shown so the active account is
+          unambiguous. */}
+      <div className="mx-3 mb-3 rounded-xl bg-surface-alt border border-border overflow-hidden">
+        <div className="flex items-center gap-3 p-3">
+          <div
+            className="w-9 h-9 rounded-full bg-gold/15 text-gold flex items-center justify-center text-xs font-bold shrink-0"
+            aria-hidden="true"
+            title={profile?.email ?? 'Signed in'}
+          >
             {profile?.display_name?.charAt(0)?.toUpperCase() ?? '?'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate text-text">{profile?.display_name ?? 'User'}</p>
-            <p className="text-[11px] text-text-light truncate capitalize">{profile?.position ?? 'Member'}</p>
+            <p className="text-sm font-semibold truncate text-text">
+              {profile?.display_name ?? 'User'}
+            </p>
+            <p className="text-[11px] text-gold truncate" title={profile?.email ?? ''}>
+              {profile?.email ?? 'No email'}
+            </p>
+            <p className="text-[10px] text-text-light truncate capitalize">
+              {profile?.position ?? 'Member'} · {profile?.role ?? 'member'}
+            </p>
           </div>
-          <LogOut size={15} className="text-text-light shrink-0" aria-hidden="true" />
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="shrink-0 p-2 rounded-lg text-text-light hover:bg-surface-hover hover:text-red-400 transition-colors focus-ring"
+            aria-label={`Sign out of ${profile?.email ?? 'this account'}`}
+            title="Sign out"
+          >
+            <LogOut size={15} aria-hidden="true" />
+          </button>
         </div>
-      </button>
+      </div>
     </div>
   )
 
@@ -194,6 +214,19 @@ export default function Layout() {
           <div className="ml-3 flex items-center gap-2">
             <div className="w-6 h-6 rounded-md bg-gold/10 border border-gold/20 flex items-center justify-center text-gold font-bold text-[9px]" aria-hidden="true">CA</div>
             <span className="font-bold text-sm text-text">Checkmark Audio</span>
+          </div>
+          {/* Always-visible signed-in indicator so you never wonder which account
+              you're using, regardless of sidebar state. */}
+          <div
+            className="ml-auto flex items-center gap-2 min-w-0 max-w-[50%]"
+            title={profile?.email ?? ''}
+          >
+            <div className="w-7 h-7 rounded-full bg-gold/15 text-gold flex items-center justify-center text-[11px] font-bold shrink-0">
+              {profile?.display_name?.charAt(0)?.toUpperCase() ?? '?'}
+            </div>
+            <span className="text-[11px] text-text-muted truncate hidden sm:inline">
+              {profile?.email ?? 'Not signed in'}
+            </span>
           </div>
         </header>
         <div className="flex-1 overflow-y-auto p-4 lg:p-8">

@@ -10,6 +10,7 @@ import DailyNotes from './pages/DailyNotes'
 import Schedule from './pages/Schedule'
 import Projects from './pages/Projects'
 import Sessions from './pages/Sessions'
+import Calendar from './pages/Calendar'
 import Content from './pages/Content'
 import Pipeline from './pages/Pipeline'
 import Education from './pages/Education'
@@ -20,6 +21,7 @@ import Templates from './pages/admin/Templates'
 import MyTeam from './pages/admin/MyTeam'
 import BusinessHealth from './pages/admin/BusinessHealth'
 import AdminSettings from './pages/admin/AdminSettings'
+import AdminHub from './pages/admin/Hub'
 
 export default function App() {
   return (
@@ -40,11 +42,16 @@ export default function App() {
           <Route path="schedule" element={<Schedule />} />
           <Route path="projects" element={<Projects />} />
           <Route path="sessions" element={<Sessions />} />
+          <Route path="calendar" element={<Calendar />} />
           <Route path="content" element={<Content />} />
           <Route path="pipeline" element={<Pipeline />} />
           <Route path="education" element={<Education />} />
           <Route path="reviews" element={<Reviews />} />
           <Route path="kpis" element={<KPIDashboard />} />
+          <Route
+            path="admin"
+            element={<ProtectedRoute adminOnly><AdminHub /></ProtectedRoute>}
+          />
           <Route
             path="admin/team"
             element={<ProtectedRoute adminOnly><TeamManager /></ProtectedRoute>}

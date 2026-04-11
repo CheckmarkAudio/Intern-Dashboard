@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useChecklist } from '../hooks/useChecklist'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
@@ -9,6 +9,8 @@ import type { DailyNote, DeliverableSubmission, TeamMember, MemberKPI, MemberKPI
 import type { ChecklistItemRow } from '../hooks/useChecklist'
 import MustDoCard from '../components/MustDoCard'
 import SubmissionModal from '../components/SubmissionModal'
+import PublishChecklistModal from '../components/admin/PublishChecklistModal'
+import ApprovalsPanel from '../components/admin/ApprovalsPanel'
 import { useToast } from '../components/Toast'
 import {
   AreaChart, Area, ResponsiveContainer,
@@ -17,8 +19,91 @@ import {
   Check, FileText, Flame, Loader2,
   ListChecks, Mic, ArrowRight, Target, TrendingUp, TrendingDown, Minus,
   Users, CheckCircle2, XCircle, ClipboardList, Edit2, Plus, X, Trash2, Save,
-  ExternalLink,
+  ExternalLink, Send, LogOut, LogIn,
 } from 'lucide-react'
+
+// ─── Account Strip ────────────────────────────────────────────────────
+// Always-visible "who am I signed in as" indicator. Lives at the top of
+// the Dashboard so the user never has to hunt for it — independent of
+// sidebar visibility, viewport breakpoint, or session state.
+//
+// Logged in  → shows avatar + display name + email + role, plus a
+//              "Sign out" button that signs the user out and goes to /login.
+// Logged out → shows a "Not signed in" state with a primary "Sign in"
+//              button that navigates to /login.
+//
+// This component was added in response to user feedback that the sidebar
+// account card is too easy to miss and too easy to accidentally click.
+// It's the canonical place to verify which account is active on this tab.
+function AccountStrip() {
+  const { profile, user, signOut } = useAuth()
+  const navigate = useNavigate()
+  const signedIn = !!profile || !!user
+  const displayName = profile?.display_name ?? user?.email?.split('@')[0] ?? 'Unknown user'
+  const email = profile?.email ?? user?.email ?? 'no email on file'
+  const role = profile?.role ?? 'member'
+  const position = profile?.position ?? null
+  const initial = displayName.charAt(0).toUpperCase() || '?'
+
+  const handleSignOut = async () => {
+    try { await signOut() } catch {}
+    navigate('/login')
+  }
+
+  if (!signedIn) {
+    return (
+      <div className="bg-surface rounded-2xl border border-red-500/30 p-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-full bg-red-500/15 text-red-400 flex items-center justify-center shrink-0">
+            <X size={18} aria-hidden="true" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-text">Not signed in</p>
+            <p className="text-xs text-text-muted">Sign in to see your personal dashboard.</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate('/login')}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-gold hover:bg-gold-muted text-black px-4 py-2 text-sm font-semibold focus-ring"
+        >
+          <LogIn size={14} aria-hidden="true" />
+          Sign in
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-surface rounded-2xl border border-border p-4 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3 min-w-0">
+        <div
+          className="w-10 h-10 rounded-full bg-gold/15 text-gold flex items-center justify-center text-sm font-bold shrink-0"
+          aria-hidden="true"
+        >
+          {initial}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-text truncate">{displayName}</p>
+          <p className="text-xs text-gold truncate" title={email}>{email}</p>
+          <p className="text-[10px] text-text-light truncate capitalize">
+            {role}{position ? ` · ${position}` : ''}
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={handleSignOut}
+        className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface-alt hover:bg-surface-hover text-text-muted hover:text-text px-3 py-2 text-xs font-medium focus-ring shrink-0"
+        aria-label={`Sign out of ${email}`}
+        title="Sign out"
+      >
+        <LogOut size={13} aria-hidden="true" />
+        Sign out
+      </button>
+    </div>
+  )
+}
 
 function getKPITrend(entries: MemberKPIEntry[]): 'up' | 'down' | 'flat' {
   if (entries.length < 2) return 'flat'
@@ -346,6 +431,10 @@ function TeamPulseTab() {
 
   return (
     <div className="space-y-6">
+      {/* Phase 5.3 — pending task_edit_requests, admin-only. Lives at the top
+          of TeamPulseTab so approvals are never more than one click away. */}
+      <ApprovalsPanel />
+
       {/* Summary stats */}
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-surface rounded-2xl border border-border p-4">
@@ -487,6 +576,7 @@ function MyTasksTab() {
   const { profile, isAdmin } = useAuth()
   const { toast } = useToast()
   const [showSubmitModal, setShowSubmitModal] = useState(false)
+  const [showPublishModal, setShowPublishModal] = useState(false)
   const [todayNote, setTodayNote] = useState<DailyNote | null>(null)
   const [streak, setStreak] = useState(0)
   const [todaySessions, setTodaySessions] = useState<{ id: string; client_name: string; start_time: string; end_time: string; session_type: string; status: string }[]>([])
@@ -700,8 +790,19 @@ function MyTasksTab() {
       {/* Today's Checklist inline */}
       {daily.totalCount > 0 && (
         <div className="bg-surface rounded-2xl border border-border overflow-hidden">
-          <div className="px-5 py-4 border-b border-border">
+          <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
             <h2 className="font-semibold text-sm">Today's Tasks</h2>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setShowPublishModal(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-gold hover:text-gold-muted transition-colors focus-ring rounded px-2 py-1"
+                title="Publish today's list to the team as a template"
+              >
+                <Send size={12} aria-hidden="true" />
+                Publish to team
+              </button>
+            )}
           </div>
           <div className="divide-y divide-border/50">
             {Object.entries(daily.grouped).map(([category, items]) => (
@@ -804,6 +905,15 @@ function MyTasksTab() {
           onSubmitted={() => { setMustDoKey(k => k + 1); loadData() }}
         />
       )}
+
+      {/* Phase 5.1.5 — admin-only: publish own daily checklist to the team. */}
+      <PublishChecklistModal
+        open={showPublishModal}
+        onClose={() => setShowPublishModal(false)}
+        sourceItemCount={daily.totalCount}
+        sourceCategoryCount={Object.keys(daily.grouped).length}
+        onPublished={() => { daily.reload?.(); loadData() }}
+      />
     </div>
   )
 }
@@ -820,6 +930,9 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+      {/* Always-visible account indicator so you can verify your login on every dashboard load. */}
+      <AccountStrip />
+
       {/* Header */}
       <div className="flex items-end justify-between gap-4">
         <div>

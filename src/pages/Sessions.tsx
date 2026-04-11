@@ -6,6 +6,11 @@ import { supabase } from '../lib/supabase'
 import {
   Button, Input, Textarea, Select, EmptyState, PageHeader, Modal,
 } from '../components/ui'
+import {
+  DAY_START_MIN, DAY_END_MIN, DAY_RANGE_MIN,
+  parseTimeToMinutes, formatTimeDisplay, blockLayout as sharedBlockLayout,
+  pad2,
+} from '../lib/time'
 import type { Project, Session } from '../types'
 import {
   Mic,
@@ -42,47 +47,20 @@ const STATUS_DOT: Record<Session['status'], string> = {
   cancelled: 'bg-red-400',
 }
 
-const DAY_START_MIN = 8 * 60
-const DAY_END_MIN = 21 * 60
-const DAY_RANGE = DAY_END_MIN - DAY_START_MIN
-
-function pad2(n: number) {
-  return n.toString().padStart(2, '0')
-}
+// Day window + time math live in `src/lib/time.ts` now so CalendarWeek
+// can reuse them without duplicating. This file keeps a thin
+// `blockLayout` wrapper and `toYMD` helper for local call sites.
 
 function toYMD(d: Date) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
 }
 
-function parseTimeToMinutes(t: string): number {
-  const parts = t.split(':').map(Number)
-  const h = parts[0] ?? 0
-  const m = parts[1] ?? 0
-  return h * 60 + m
+function blockLayout(start: string, end: string) {
+  return sharedBlockLayout(start, end, DAY_START_MIN, DAY_END_MIN)
 }
 
-function formatTimeDisplay(t: string) {
-  const m = parseTimeToMinutes(t)
-  const h = Math.floor(m / 60)
-  const min = m % 60
-  const ampm = h >= 12 ? 'PM' : 'AM'
-  const h12 = h % 12 || 12
-  return `${h12}:${pad2(min)} ${ampm}`
-}
-
-function blockLayout(start: string, end: string): { topPct: number; heightPct: number } {
-  let sm = parseTimeToMinutes(start)
-  let em = parseTimeToMinutes(end)
-  if (em <= sm) em = sm + 30
-  sm = Math.max(DAY_START_MIN, Math.min(sm, DAY_END_MIN))
-  em = Math.max(sm + 15, Math.min(em, DAY_END_MIN + 60))
-  const top = ((sm - DAY_START_MIN) / DAY_RANGE) * 100
-  const height = ((em - sm) / DAY_RANGE) * 100
-  return {
-    topPct: Math.max(0, Math.min(top, 100)),
-    heightPct: Math.max(3, Math.min(height, 100 - top)),
-  }
-}
+// Re-export DAY_RANGE for any references further down that still use the old name.
+const DAY_RANGE = DAY_RANGE_MIN
 
 type SessionFormState = {
   project_id: string
