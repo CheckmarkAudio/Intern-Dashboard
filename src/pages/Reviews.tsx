@@ -13,7 +13,7 @@ const CATEGORIES = [
 ]
 
 export default function Reviews() {
-  useDocumentTitle('Reviews - Checkmark Audio')
+  useDocumentTitle('Performance Reviews - Checkmark Audio')
   const { profile, isAdmin } = useAuth()
   const { toast } = useToast()
   const [reviews, setReviews] = useState<PerformanceReview[]>([])
@@ -153,7 +153,7 @@ export default function Reviews() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Performance Reviews</h1>
-          <p className="text-text-muted mt-1">{isAdmin ? 'Create and manage team reviews' : 'View your performance reviews'}</p>
+          <p className="text-text-muted mt-1">{isAdmin ? 'Create and manage performance reviews' : 'View your performance reviews'}</p>
         </div>
         {isAdmin && (
           <button onClick={() => setShowForm(!showForm)}

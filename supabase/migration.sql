@@ -615,12 +615,13 @@ DROP POLICY IF EXISTS "intern_schedule_templates_delete" ON intern_schedule_temp
 
 CREATE POLICY "intern_schedule_templates_select" ON intern_schedule_templates
   FOR SELECT TO authenticated USING (team_id = get_my_team_id());
+-- Members can only manage their own schedule; admins can manage any team member's schedule
 CREATE POLICY "intern_schedule_templates_insert" ON intern_schedule_templates
-  FOR INSERT TO authenticated WITH CHECK (team_id = get_my_team_id());
+  FOR INSERT TO authenticated WITH CHECK (team_id = get_my_team_id() AND (intern_id = auth.uid() OR is_team_admin()));
 CREATE POLICY "intern_schedule_templates_update" ON intern_schedule_templates
-  FOR UPDATE TO authenticated USING (team_id = get_my_team_id());
+  FOR UPDATE TO authenticated USING (team_id = get_my_team_id() AND (intern_id = auth.uid() OR is_team_admin()));
 CREATE POLICY "intern_schedule_templates_delete" ON intern_schedule_templates
-  FOR DELETE TO authenticated USING (team_id = get_my_team_id());
+  FOR DELETE TO authenticated USING (team_id = get_my_team_id() AND (intern_id = auth.uid() OR is_team_admin()));
 
 DROP TRIGGER IF EXISTS set_team_id ON intern_schedule_templates;
 CREATE TRIGGER set_team_id BEFORE INSERT ON intern_schedule_templates

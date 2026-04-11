@@ -23,7 +23,7 @@ function getMonday(d: Date) {
 }
 
 export default function WeeklyChecklist() {
-  useDocumentTitle('Weekly Review - Checkmark Audio')
+  useDocumentTitle('Weekly Tasks - Checkmark Audio')
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()))
   const { grouped, loading, toggleItem, completedCount, totalCount, percentage } =
     useChecklist('weekly', weekStart)
@@ -52,7 +52,7 @@ export default function WeeklyChecklist() {
     <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text">Weekly Review</h1>
+          <h1 className="text-2xl font-bold text-text">Weekly Tasks</h1>
           <p className="text-text-muted text-sm mt-1">
             {weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             {' — '}
@@ -107,7 +107,7 @@ export default function WeeklyChecklist() {
       {categories.length === 0 ? (
         <div className="bg-surface rounded-2xl border border-border p-12 text-center">
           <ListChecks size={40} className="mx-auto mb-3 text-text-light opacity-40" />
-          <p className="text-text-muted font-medium">No weekly checklist items</p>
+          <p className="text-text-muted font-medium">No weekly tasks</p>
           <p className="text-sm text-text-light mt-1">Tasks are auto-generated each week.</p>
         </div>
       ) : (

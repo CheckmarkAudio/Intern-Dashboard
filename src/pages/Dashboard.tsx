@@ -146,7 +146,7 @@ function AdminChecklistEditor({ member, onClose }: { member: TeamMember; onClose
         <div className="flex items-center gap-2">
           <Edit2 size={13} className="text-gold" />
           <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">
-            {member.display_name}'s checklist
+            {member.display_name}'s tasks
           </span>
           {items.length > 0 && (
             <span className="text-xs text-text-light">{done}/{items.length}</span>
@@ -158,9 +158,9 @@ function AdminChecklistEditor({ member, onClose }: { member: TeamMember; onClose
       </div>
 
       {items.length === 0 && !instanceId ? (
-        <p className="px-5 py-4 text-sm text-text-muted italic">No checklist generated yet for today.</p>
+        <p className="px-5 py-4 text-sm text-text-muted italic">No tasks generated yet for today.</p>
       ) : items.length === 0 ? (
-        <p className="px-5 py-4 text-sm text-text-muted italic">Checklist is empty. Add items below.</p>
+        <p className="px-5 py-4 text-sm text-text-muted italic">Task list is empty. Add items below.</p>
       ) : (
         <div className="divide-y divide-border/30">
           {items.map(item => (
@@ -347,7 +347,7 @@ function TeamPulseTab() {
         </div>
         <div className="bg-surface rounded-2xl border border-border p-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">Checklists</span>
+            <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">Tasks</span>
             <ListChecks size={14} className="text-emerald-500" />
           </div>
           <p className="text-xl font-bold">{allDone}/{withChecklists}</p>
@@ -405,7 +405,7 @@ function TeamPulseTab() {
                         <span className="text-[11px] text-text-muted tabular-nums">{checklistDone}/{checklistTotal}</span>
                       </div>
                     ) : (
-                      <p className="text-[11px] text-text-light mt-0.5">No checklist today</p>
+                      <p className="text-[11px] text-text-light mt-0.5">No tasks today</p>
                     )}
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
@@ -423,7 +423,7 @@ function TeamPulseTab() {
                       className={`p-1.5 rounded-lg text-xs font-medium transition-colors ${
                         isEditing ? 'bg-gold/10 text-gold' : 'hover:bg-surface-alt text-text-muted hover:text-text'
                       }`}
-                      aria-label={`Edit ${member.display_name}'s checklist`}
+                      aria-label={`Edit ${member.display_name}'s tasks`}
                     >
                       <Edit2 size={14} />
                     </button>

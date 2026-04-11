@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
+import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../components/Toast'
 import type { ReportTemplate, TemplateField, TeamMember, TaskAssignment } from '../../types'
@@ -135,6 +136,7 @@ const PRESET_TEMPLATES: Omit<ReportTemplate, 'id' | 'created_at' | 'updated_at'>
 
 export default function Templates() {
   useDocumentTitle('Templates - Checkmark Audio')
+  const { profile } = useAuth()
   const { toast } = useToast()
   const [templates, setTemplates] = useState<ReportTemplate[]>([])
   const [loading, setLoading] = useState(true)
@@ -295,19 +297,19 @@ export default function Templates() {
     if (!assignModalTemplate) return
     setAssignSubmitting(true)
 
-    const inserts: Array<{ template_id: string; intern_id: string | null; position: string | null; is_active: boolean }> = []
+    const inserts: Array<{ template_id: string; intern_id: string | null; position: string | null; is_active: boolean; assigned_by: string | undefined }> = []
 
     if (assignMode === 'member') {
       for (const memberId of selectedMemberIds) {
         const exists = assignments.some(a => a.template_id === assignModalTemplate.id && a.intern_id === memberId && a.is_active)
         if (!exists) {
-          inserts.push({ template_id: assignModalTemplate.id, intern_id: memberId, position: null, is_active: true })
+          inserts.push({ template_id: assignModalTemplate.id, intern_id: memberId, position: null, is_active: true, assigned_by: profile?.id })
         }
       }
     } else if (selectedPosition) {
       const exists = assignments.some(a => a.template_id === assignModalTemplate.id && a.position === selectedPosition && a.is_active)
       if (!exists) {
-        inserts.push({ template_id: assignModalTemplate.id, intern_id: null, position: selectedPosition, is_active: true })
+        inserts.push({ template_id: assignModalTemplate.id, intern_id: null, position: selectedPosition, is_active: true, assigned_by: profile?.id })
       }
     }
 
@@ -352,7 +354,7 @@ export default function Templates() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Templates</h1>
-          <p className="text-text-muted mt-1">Create and manage task templates for your team</p>
+          <p className="text-text-muted mt-1">Create and manage task templates, then assign them to team members</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => { setShowPresets(!showPresets); setShowForm(false) }}
@@ -578,7 +580,7 @@ export default function Templates() {
                   </button>
                   <button onClick={() => openAssignModal(template)}
                     className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-violet-400 hover:bg-violet-500/10">
-                    <UserPlus size={12} aria-hidden="true" /> Assign
+                    <UserPlus size={12} aria-hidden="true" /> Assign Tasks
                   </button>
                   <button onClick={() => handleDelete(template.id)}
                     className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-400 hover:bg-red-500/10 ml-auto">
@@ -598,7 +600,7 @@ export default function Templates() {
           <div className="relative bg-surface rounded-2xl border border-border p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between mb-5">
               <div>
-                <h2 id="assign-modal-title" className="font-semibold text-lg">Assign Template</h2>
+                <h2 id="assign-modal-title" className="font-semibold text-lg">Assign Tasks</h2>
                 <p className="text-sm text-text-muted mt-0.5">{assignModalTemplate.name}</p>
               </div>
               <button onClick={() => setAssignModalTemplate(null)} className="p-1.5 rounded-lg hover:bg-surface-hover text-text-muted" aria-label="Close">
@@ -606,23 +608,33 @@ export default function Templates() {
               </button>
             </div>
 
-            {/* Current assignments */}
+            {/* Currently assigned */}
             {(() => {
               const current = assignments.filter(a => a.template_id === assignModalTemplate.id && a.is_active)
               if (current.length === 0) return null
               return (
                 <div className="mb-5">
-                  <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-2">Current Assignments</p>
+                  <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-2">Currently Assigned To</p>
                   <div className="space-y-1.5">
                     {current.map(a => (
                       <div key={a.id} className="flex items-center justify-between p-2.5 rounded-lg bg-surface-alt text-sm">
-                        <span>
-                          {a.intern_id
-                            ? teamMembers.find(m => m.id === a.intern_id)?.display_name ?? 'Unknown'
-                            : `All ${POSITIONS_LIST.find(p => p.value === a.position)?.label ?? a.position}`}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {a.intern_id ? (
+                            <>
+                              <div className="w-6 h-6 rounded-full bg-gold/15 text-gold flex items-center justify-center text-[10px] font-bold shrink-0">
+                                {(teamMembers.find(m => m.id === a.intern_id)?.display_name ?? '?').charAt(0).toUpperCase()}
+                              </div>
+                              <span>{teamMembers.find(m => m.id === a.intern_id)?.display_name ?? 'Unknown'}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Users size={14} className="text-violet-400" aria-hidden="true" />
+                              <span>All {POSITIONS_LIST.find(p => p.value === a.position)?.label ?? a.position}</span>
+                            </>
+                          )}
+                        </div>
                         <button onClick={() => removeAssignment(a.id)}
-                          className="text-xs text-red-400 hover:text-red-300 font-medium">Remove</button>
+                          className="text-xs text-red-400 hover:text-red-300 font-medium transition-colors">Remove</button>
                       </div>
                     ))}
                   </div>
@@ -630,6 +642,7 @@ export default function Templates() {
               )
             })()}
 
+            <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-3">Add Assignment</p>
             <div className="flex gap-2 mb-4">
               <button onClick={() => setAssignMode('member')}
                 className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${assignMode === 'member' ? 'bg-gold/10 text-gold' : 'text-text-muted hover:bg-surface-hover'}`}>
@@ -643,19 +656,25 @@ export default function Templates() {
 
             {assignMode === 'member' ? (
               <div className="space-y-1.5 max-h-60 overflow-y-auto">
-                {teamMembers.filter(m => m.status !== 'inactive').map(m => (
-                  <label key={m.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-surface-hover cursor-pointer">
-                    <input type="checkbox" checked={selectedMemberIds.has(m.id)}
-                      onChange={() => toggleMemberSelection(m.id)} className="rounded border-border" />
-                    <div className="w-8 h-8 rounded-full bg-gold/15 text-gold flex items-center justify-center text-xs font-bold shrink-0">
-                      {m.display_name?.charAt(0)?.toUpperCase() ?? '?'}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{m.display_name}</p>
-                      <p className="text-xs text-text-muted capitalize">{(m.position ?? 'intern').replace(/_/g, ' ')}</p>
-                    </div>
-                  </label>
-                ))}
+                {teamMembers.filter(m => m.status !== 'inactive').map(m => {
+                  const alreadyAssigned = assignments.some(a => a.template_id === assignModalTemplate.id && a.intern_id === m.id && a.is_active)
+                  return (
+                    <label key={m.id} className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors ${alreadyAssigned ? 'opacity-50' : 'hover:bg-surface-hover'}`}>
+                      <input type="checkbox" checked={selectedMemberIds.has(m.id)} disabled={alreadyAssigned}
+                        onChange={() => toggleMemberSelection(m.id)} className="rounded border-border" />
+                      <div className="w-8 h-8 rounded-full bg-gold/15 text-gold flex items-center justify-center text-xs font-bold shrink-0">
+                        {m.display_name?.charAt(0)?.toUpperCase() ?? '?'}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{m.display_name}</p>
+                        <p className="text-xs text-text-muted capitalize">{(m.position ?? 'intern').replace(/_/g, ' ')}</p>
+                      </div>
+                      {alreadyAssigned && (
+                        <span className="text-[10px] text-emerald-400 font-medium shrink-0">Assigned</span>
+                      )}
+                    </label>
+                  )
+                })}
               </div>
             ) : (
               <div>
@@ -667,20 +686,29 @@ export default function Templates() {
                 </select>
                 {selectedPosition && (
                   <p className="text-xs text-text-muted mt-2">
-                    All current and future {POSITIONS_LIST.find(p => p.value === selectedPosition)?.label} members will receive this template.
+                    All current and future <span className="font-medium text-text">{POSITIONS_LIST.find(p => p.value === selectedPosition)?.label}</span> members will receive this task template.
                   </p>
                 )}
               </div>
             )}
 
-            <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-border">
-              <button onClick={() => setAssignModalTemplate(null)}
-                className="px-4 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-surface-hover">Cancel</button>
-              <button onClick={handleAssign} disabled={assignSubmitting || (assignMode === 'member' ? selectedMemberIds.size === 0 : !selectedPosition)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gold hover:bg-gold-muted text-black font-semibold text-sm disabled:opacity-50">
-                {assignSubmitting ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <UserPlus size={16} aria-hidden="true" />}
-                Assign
-              </button>
+            <div className="flex items-center justify-between mt-5 pt-4 border-t border-border">
+              <div>
+                {assignMode === 'member' && selectedMemberIds.size > 0 && (
+                  <p className="text-xs text-text-muted">
+                    <span className="font-medium text-text">{selectedMemberIds.size}</span> member{selectedMemberIds.size > 1 ? 's' : ''} selected
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setAssignModalTemplate(null)}
+                  className="px-4 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-surface-hover transition-colors">Cancel</button>
+                <button onClick={handleAssign} disabled={assignSubmitting || (assignMode === 'member' ? selectedMemberIds.size === 0 : !selectedPosition)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gold hover:bg-gold-muted text-black font-semibold text-sm disabled:opacity-50 transition-all">
+                  {assignSubmitting ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <UserPlus size={16} aria-hidden="true" />}
+                  Assign Tasks
+                </button>
+              </div>
             </div>
           </div>
         </div>

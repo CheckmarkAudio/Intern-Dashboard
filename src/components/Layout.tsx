@@ -12,7 +12,7 @@ import {
 
 const memberLinks = [
   { to: '/', icon: LayoutDashboard, label: 'Today' },
-  { to: '/daily', icon: ClipboardList, label: 'Daily Checklist' },
+  { to: '/daily', icon: ClipboardList, label: 'Daily Tasks' },
   { to: '/notes', icon: FileText, label: 'Daily Notes' },
   { to: '/schedule', icon: Calendar, label: 'Schedule' },
   { to: '/kpis', icon: Target, label: 'My KPIs' },
@@ -21,8 +21,8 @@ const memberLinks = [
   { to: '/content', icon: Pencil, label: 'Content' },
   { to: '/pipeline', icon: GitBranch, label: 'Pipeline' },
   { to: '/education', icon: GraduationCap, label: 'Education' },
-  { to: '/weekly', icon: CheckSquare, label: 'Weekly Review' },
-  { to: '/reviews', icon: Star, label: 'Reviews' },
+  { to: '/weekly', icon: CheckSquare, label: 'Weekly Tasks' },
+  { to: '/reviews', icon: Star, label: 'Performance Reviews' },
 ]
 
 const adminLinks = [

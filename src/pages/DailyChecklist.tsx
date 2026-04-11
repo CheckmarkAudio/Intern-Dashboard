@@ -14,7 +14,7 @@ const CATEGORY_META: Record<string, string> = {
 }
 
 export default function DailyChecklist() {
-  useDocumentTitle('Daily Checklist - Checkmark Audio')
+  useDocumentTitle('Daily Tasks - Checkmark Audio')
   const [date, setDate] = useState(new Date())
   const { grouped, loading, toggleItem, completedCount, totalCount, percentage } =
     useChecklist('daily', date)
@@ -43,7 +43,7 @@ export default function DailyChecklist() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Daily Checklist</h1>
+          <h1 className="text-2xl font-bold">Daily Tasks</h1>
           <p className="text-text-muted text-sm mt-1">
             {isToday
               ? "Today's tasks"
@@ -100,7 +100,7 @@ export default function DailyChecklist() {
       {categories.length === 0 ? (
         <div className="bg-surface rounded-2xl border border-border p-12 text-center shadow-sm">
           <ListChecks size={40} className="mx-auto mb-3 text-text-light opacity-40" />
-          <p className="text-text-muted font-medium">No checklist items for this date</p>
+          <p className="text-text-muted font-medium">No tasks for this date</p>
           <p className="text-sm text-text-light mt-1">Tasks are auto-generated. Check back on a workday.</p>
         </div>
       ) : (
