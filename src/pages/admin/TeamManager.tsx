@@ -31,14 +31,14 @@ const POSITIONS: { value: string; label: string; badge: BadgeVariant }[] = [
 ]
 
 type MemberForm = {
-  display_name: string; email: string; role: 'admin' | 'member'
+  display_name: string; email: string; role: 'admin' | 'intern'
   position: string; phone: string; start_date: string; status: 'active' | 'inactive'
   managed_by: string
   default_password: string
 }
 
 const EMPTY_MEMBER: MemberForm = {
-  display_name: '', email: '', role: 'member', position: 'intern',
+  display_name: '', email: '', role: 'intern', position: 'intern',
   phone: '', start_date: '', status: 'active', managed_by: '',
   default_password: '',
 }
@@ -309,7 +309,7 @@ export default function TeamManager() {
     setFormData({
       display_name: member.display_name,
       email: member.email,
-      role: member.role as 'admin' | 'member',
+      role: member.role as 'admin' | 'intern',
       position: knownPosition ? (member.position ?? 'intern') : 'custom',
       phone: member.phone ?? '',
       start_date: member.start_date ?? '',
@@ -351,7 +351,7 @@ export default function TeamManager() {
   const toggleRole = async (member: TeamMember) => {
     setOpenMenuId(null)
     setActionLoadingId(member.id)
-    const newRole = member.role === 'admin' ? 'member' : 'admin'
+    const newRole = member.role === 'admin' ? 'intern' : 'admin'
     const { error } = await supabase.from('intern_users').update({ role: newRole }).eq('id', member.id)
     if (error) toast('Failed to update role', 'error')
     else toast(`Role updated to ${newRole}`)
@@ -773,9 +773,9 @@ export default function TeamManager() {
                     id="team-member-role"
                     label="Role"
                     value={formData.role}
-                    onChange={e => setFormData({ ...formData, role: e.target.value as 'admin' | 'member' })}
+                    onChange={e => setFormData({ ...formData, role: e.target.value as 'admin' | 'intern' })}
                   >
-                    <option value="member">Member</option>
+                    <option value="intern">Member</option>
                     <option value="admin">Admin</option>
                   </Select>
                 </div>
