@@ -13,7 +13,7 @@ Fill this in as you lock each screen. **Product owner:** add **PNG filenames** i
 | Menu label (Menu-Sidebar) | Draft folder (put mockups here) | URL path (code) | Page component (code) | Visual draft file(s) | Notes |
 |---------------------------|----------------------------------|-----------------|-------------------------|------------------------|-------|
 | Overview | `docs/pages/Overview/` | *TBD* | *TBD* | **`overview-v1.2.png` (canonical)**; `overview-v1.png` (archive) | v1.2: calendar widget is **single-day (today)** agenda view, not month grid; updates conceptually each calendar day. Section titles will become links later. |
-| Tasks | `docs/pages/Tasks/` | *TBD* | *TBD* | **`tasks-v1.0.png` (canonical)** | v1.0: **Priority tasks** (top) → **Projects** (moved from old Projects menu; project list/cards here) → **Daily tasks** (own box). Each section is a titled widget card. |
+| Tasks | `docs/pages/Tasks/` | *TBD* | *TBD* | **`tasks-v2.0.png` (canonical)**; `tasks-v1.1.png`, `tasks-v1.0.png` (archive) | v2.0: v1.1 **four widgets** unchanged, plus **full My KPIs block** from old KPI page: Flywheel label, five stage summary cards (Deliver/Capture/Share/Attract/Book), KPI cards with trend + chart + log entry (see `src/pages/KPIDashboard.tsx`). v1.1: four widgets only. |
 | Calendar | `docs/pages/Calendar/` | *TBD* | *TBD* | | |
 | Booking Agent | `docs/pages/Booking Agent/` | *TBD* | *TBD* | | |
 | Idea Board | `docs/pages/Idea Board/` | *TBD* | *TBD* | | |
