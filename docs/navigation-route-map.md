@@ -10,7 +10,7 @@ Fill this in as you lock each screen. **Product owner:** add **PNG filenames** i
 
 | Menu label (Menu-Sidebar) | Draft folder (put mockups here) | URL path (code) | Page component (code) | Visual draft file(s) | Notes |
 |---------------------------|----------------------------------|-----------------|-------------------------|------------------------|-------|
-| Overview | `docs/pages/Overview/` | *TBD* | *TBD* | | |
+| Overview | `docs/pages/Overview/` | *TBD* | *TBD* | `overview-v1.png`; **current:** `overview-v1.2.png` | v1.2: calendar widget is **single-day (today)** agenda view, not month grid; updates conceptually each calendar day. v1: month mini-widget. Section titles will become links later. |
 | Tasks | `docs/pages/Tasks/` | *TBD* | *TBD* | | |
 | Calendar | `docs/pages/Calendar/` | *TBD* | *TBD* | | |
 | Booking Agent | `docs/pages/Booking Agent/` | *TBD* | *TBD* | | |
