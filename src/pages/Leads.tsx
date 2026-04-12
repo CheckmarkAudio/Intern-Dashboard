@@ -10,7 +10,7 @@ import {
 } from '../components/ui'
 import type { Lead } from '../types'
 import {
-  Plus, X, Search, Filter, Phone, Mail, Building2, DollarSign, AlertCircle, Target, Save,
+  Plus, X, Search, Phone, Mail, Building2, DollarSign, AlertCircle, Target, Save,
 } from 'lucide-react'
 
 const STATUS_OPTIONS = ['new', 'contacted', 'qualified', 'proposal', 'closed_won', 'closed_lost'] as const

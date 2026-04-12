@@ -4,18 +4,18 @@ import { useToast } from '../components/Toast'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { supabase } from '../lib/supabase'
 import {
-  Button, Input, Textarea, Select, EmptyState, PageHeader, Modal,
+  Button, EmptyState, PageHeader,
 } from '../components/ui'
 import {
   DAY_START_MIN, DAY_END_MIN, DAY_RANGE_MIN,
-  parseTimeToMinutes, formatTimeDisplay, blockLayout as sharedBlockLayout,
-  pad2,
+  formatTimeDisplay, blockLayout as sharedBlockLayout,
 } from '../lib/time'
+import { localDateKey } from '../lib/dates'
+import SessionFormModal from '../components/sessions/SessionFormModal'
 import type { Project, Session } from '../types'
 import {
   Mic,
   Plus,
-  Save,
   Loader2,
   Edit2,
   Trash2,
@@ -23,9 +23,6 @@ import {
   ChevronRight,
   Clock,
 } from 'lucide-react'
-
-const SESSION_TYPES: Session['session_type'][] = ['recording', 'mixing', 'lesson', 'meeting']
-const SESSION_STATUSES: Session['status'][] = ['confirmed', 'pending', 'cancelled']
 
 const TYPE_LABELS: Record<Session['session_type'], string> = {
   recording: 'Recording',
@@ -47,44 +44,11 @@ const STATUS_DOT: Record<Session['status'], string> = {
   cancelled: 'bg-red-400',
 }
 
-// Day window + time math live in `src/lib/time.ts` now so CalendarWeek
-// can reuse them without duplicating. This file keeps a thin
-// `blockLayout` wrapper and `toYMD` helper for local call sites.
-
-function toYMD(d: Date) {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
-}
-
 function blockLayout(start: string, end: string) {
   return sharedBlockLayout(start, end, DAY_START_MIN, DAY_END_MIN)
 }
 
-// Re-export DAY_RANGE for any references further down that still use the old name.
 const DAY_RANGE = DAY_RANGE_MIN
-
-type SessionFormState = {
-  project_id: string
-  client_name: string
-  session_date: string
-  start_time: string
-  end_time: string
-  session_type: Session['session_type']
-  status: Session['status']
-  room: string
-  notes: string
-}
-
-const EMPTY_FORM = (dateStr: string): SessionFormState => ({
-  project_id: '',
-  client_name: '',
-  session_date: dateStr,
-  start_time: '10:00',
-  end_time: '11:00',
-  session_type: 'recording',
-  status: 'pending',
-  room: '',
-  notes: '',
-})
 
 function sessionBorderClass(status: Session['status']) {
   if (status === 'pending') return 'border-2 border-dashed border-gold'
@@ -97,16 +61,14 @@ export default function Sessions() {
   const { profile } = useAuth()
   const { toast } = useToast()
   const [viewDate, setViewDate] = useState(() => new Date())
-  const dateStr = useMemo(() => toYMD(viewDate), [viewDate])
+  const dateStr = useMemo(() => localDateKey(viewDate), [viewDate])
 
   const [sessions, setSessions] = useState<Session[]>([])
   const [projects, setProjects] = useState<Pick<Project, 'id' | 'name'>[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Session | null>(null)
-  const [submitting, setSubmitting] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [form, setForm] = useState<SessionFormState>(() => EMPTY_FORM(toYMD(new Date())))
 
   const projectNameById = useMemo(() => {
     const m = new Map<string, string>()
@@ -147,13 +109,8 @@ export default function Sessions() {
     setLoading(false)
   }, [profile, dateStr, toast])
 
-  useEffect(() => {
-    loadProjects()
-  }, [loadProjects])
-
-  useEffect(() => {
-    loadSessions()
-  }, [loadSessions])
+  useEffect(() => { loadProjects() }, [loadProjects])
+  useEffect(() => { loadSessions() }, [loadSessions])
 
   const goPrevDay = () => {
     const d = new Date(viewDate)
@@ -168,88 +125,21 @@ export default function Sessions() {
   }
 
   const goToday = () => setViewDate(new Date())
-
-  const isToday = toYMD(new Date()) === dateStr
+  const isToday = localDateKey(new Date()) === dateStr
 
   const openCreate = () => {
     setEditing(null)
-    setForm(EMPTY_FORM(dateStr))
     setModalOpen(true)
   }
 
   const openEdit = (s: Session) => {
     setEditing(s)
-    setForm({
-      project_id: s.project_id ?? '',
-      client_name: s.client_name ?? '',
-      session_date: s.session_date.slice(0, 10),
-      start_time: s.start_time.slice(0, 5),
-      end_time: s.end_time.slice(0, 5),
-      session_type: s.session_type,
-      status: s.status,
-      room: s.room ?? '',
-      notes: s.notes ?? '',
-    })
     setModalOpen(true)
   }
 
   const closeModal = () => {
-    if (submitting) return
     setModalOpen(false)
     setEditing(null)
-    setForm(EMPTY_FORM(dateStr))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!profile) return
-
-    // Client-side validation — ensure end_time is strictly after start_time.
-    // The server will also reject invalid ranges via a check constraint, but
-    // catching it here gives the user an immediate, friendlier toast.
-    if (parseTimeToMinutes(form.end_time) <= parseTimeToMinutes(form.start_time)) {
-      toast('End time must be after start time', 'error')
-      return
-    }
-
-    setSubmitting(true)
-
-    const payload = {
-      project_id: form.project_id || null,
-      client_name: form.client_name.trim() || null,
-      session_date: form.session_date,
-      start_time: form.start_time.length === 5 ? `${form.start_time}:00` : form.start_time,
-      end_time: form.end_time.length === 5 ? `${form.end_time}:00` : form.end_time,
-      session_type: form.session_type,
-      status: form.status,
-      room: form.room.trim() || null,
-      notes: form.notes.trim() || null,
-      ...(editing ? {} : { created_by: profile.id }),
-    }
-
-    if (editing) {
-      const { error } = await supabase.from('sessions').update(payload).eq('id', editing.id)
-      if (error) {
-        console.error(error)
-        toast(error.message || 'Failed to update session', 'error')
-        setSubmitting(false)
-        return
-      }
-      toast('Session updated')
-    } else {
-      const { error } = await supabase.from('sessions').insert(payload)
-      if (error) {
-        console.error(error)
-        toast(error.message || 'Failed to create session', 'error')
-        setSubmitting(false)
-        return
-      }
-      toast('Session booked')
-    }
-
-    setSubmitting(false)
-    closeModal()
-    loadSessions()
   }
 
   const handleDelete = async (s: Session) => {
@@ -354,6 +244,7 @@ export default function Sessions() {
         />
       ) : (
         <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
+          {/* Timeline sidebar */}
           <div
             className="relative hidden lg:block rounded-2xl border border-border bg-bg overflow-hidden"
             aria-hidden="true"
@@ -403,6 +294,7 @@ export default function Sessions() {
             </div>
           </div>
 
+          {/* Session card list */}
           <div className="space-y-3">
             <h2 className="text-sm font-medium text-text-muted flex items-center gap-2 lg:hidden">
               <Clock className="h-4 w-4 text-gold" aria-hidden="true" />
@@ -475,108 +367,14 @@ export default function Sessions() {
         </div>
       )}
 
-      <Modal
+      <SessionFormModal
         open={modalOpen}
         onClose={closeModal}
-        title={editing ? 'Edit session' : 'New session'}
-        size="md"
-        locked={submitting}
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            id="session-field-date"
-            label="Date"
-            type="date"
-            required
-            value={form.session_date}
-            onChange={(e) => setForm({ ...form, session_date: e.target.value })}
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              id="session-field-start"
-              label="Start"
-              type="time"
-              required
-              value={form.start_time}
-              onChange={(e) => setForm({ ...form, start_time: e.target.value })}
-            />
-            <Input
-              id="session-field-end"
-              label="End"
-              type="time"
-              required
-              value={form.end_time}
-              onChange={(e) => setForm({ ...form, end_time: e.target.value })}
-            />
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Select
-              id="session-field-type"
-              label="Type"
-              value={form.session_type}
-              onChange={(e) => setForm({ ...form, session_type: e.target.value as Session['session_type'] })}
-            >
-              {SESSION_TYPES.map((t) => (
-                <option key={t} value={t}>{TYPE_LABELS[t]}</option>
-              ))}
-            </Select>
-            <Select
-              id="session-field-status"
-              label="Status"
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value as Session['status'] })}
-              className="capitalize"
-            >
-              {SESSION_STATUSES.map((st) => (
-                <option key={st} value={st}>{st}</option>
-              ))}
-            </Select>
-          </div>
-          <Select
-            id="session-field-project"
-            label="Project"
-            value={form.project_id}
-            onChange={(e) => setForm({ ...form, project_id: e.target.value })}
-          >
-            <option value="">None</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </Select>
-          <Input
-            id="session-field-client"
-            label="Client"
-            placeholder="Optional"
-            value={form.client_name}
-            onChange={(e) => setForm({ ...form, client_name: e.target.value })}
-          />
-          <Input
-            id="session-field-room"
-            label="Room"
-            placeholder="e.g. Studio A"
-            value={form.room}
-            onChange={(e) => setForm({ ...form, room: e.target.value })}
-          />
-          <Textarea
-            id="session-field-notes"
-            label="Notes"
-            rows={3}
-            value={form.notes}
-            onChange={(e) => setForm({ ...form, notes: e.target.value })}
-          />
-          <div className="flex justify-end gap-2 border-t border-border pt-4">
-            <Button type="button" variant="secondary" onClick={closeModal}>Cancel</Button>
-            <Button
-              type="submit"
-              variant="primary"
-              loading={submitting}
-              iconLeft={!submitting ? <Save className="h-4 w-4" aria-hidden="true" /> : undefined}
-            >
-              {editing ? 'Save' : 'Create'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        editing={editing}
+        defaultDate={dateStr}
+        projects={projects}
+        onSaved={loadSessions}
+      />
     </div>
   )
 }

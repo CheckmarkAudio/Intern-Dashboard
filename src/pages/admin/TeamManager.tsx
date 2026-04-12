@@ -16,7 +16,7 @@ import type { TeamMember, ReportTemplate } from '../../types'
 import {
   Users, X, Loader2, Edit2, Trash2, Search, Shield, UserCheck,
   Mail, Phone, Calendar as CalendarIcon, Save, ChevronRight, ChevronLeft,
-  MoreVertical, UserPlus, Filter, ListChecks, Check, ClipboardList,
+  MoreVertical, UserPlus, Filter, Check, ClipboardList,
 } from 'lucide-react'
 
 import type { BadgeVariant } from '../../components/ui'

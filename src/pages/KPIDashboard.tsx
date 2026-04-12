@@ -1,16 +1,20 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { localDateKey } from '../lib/dates'
 import { useToast } from '../components/Toast'
-import type { MemberKPI, MemberKPIEntry, FlywheelStage, TeamMember } from '../types'
+import { downsampleSingle } from '../lib/chartData'
+import { getKPITrend, type KPITrend } from '../lib/kpi'
+import { fetchKPIDefinitions, fetchKPIEntries, kpiKeys } from '../lib/queries/kpi'
+import { fetchDirectReports, teamMemberKeys } from '../lib/queries/teamMembers'
+import type { MemberKPI, MemberKPIEntry, FlywheelStage } from '../types'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
 import {
   Target, TrendingUp, TrendingDown, Minus, Plus, Save, Loader2,
-  ChevronDown, Calendar,
 } from 'lucide-react'
 
 const FLYWHEEL_STAGES: { key: FlywheelStage; label: string; color: string; bg: string }[] = [
@@ -21,19 +25,7 @@ const FLYWHEEL_STAGES: { key: FlywheelStage; label: string; color: string; bg: s
   { key: 'book', label: 'Book', color: 'text-rose-400', bg: 'bg-rose-500/10' },
 ]
 
-function getKPITrend(entries: MemberKPIEntry[]): 'up' | 'down' | 'flat' {
-  if (entries.length < 2) return 'flat'
-  const sorted = [...entries].sort((a, b) => a.entry_date.localeCompare(b.entry_date))
-  const recent = sorted.slice(-5)
-  const first = recent[0]
-  const last = recent[recent.length - 1]
-  if (!first || !last) return 'flat'
-  if (last.value > first.value) return 'up'
-  if (last.value < first.value) return 'down'
-  return 'flat'
-}
-
-function getTrendColor(trend: 'up' | 'down' | 'flat') {
+function getTrendColor(trend: KPITrend) {
   if (trend === 'up') return '#10b981'
   if (trend === 'down') return '#ef4444'
   return '#C9A84C'
@@ -50,12 +42,9 @@ export default function KPIDashboard() {
   useDocumentTitle('My KPIs - Checkmark Audio')
   const { profile, isAdmin } = useAuth()
   const { toast } = useToast()
-  const [kpis, setKpis] = useState<MemberKPI[]>([])
-  const [entries, setEntries] = useState<MemberKPIEntry[]>([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
 
   // For admin view: show direct reports
-  const [directReports, setDirectReports] = useState<TeamMember[]>([])
   const [viewingUserId, setViewingUserId] = useState<string | null>(null)
 
   // Log entry form
@@ -63,59 +52,100 @@ export default function KPIDashboard() {
   const [logValue, setLogValue] = useState('')
   const [logNotes, setLogNotes] = useState('')
   const [logDate, setLogDate] = useState(localDateKey())
-  const [logSubmitting, setLogSubmitting] = useState(false)
 
-  const loadData = useCallback(async () => {
-    if (!profile) { setLoading(false); return }
-    setLoading(true)
-    try {
-      const [kpisRes, entriesRes, membersRes] = await Promise.all([
-        supabase.from('member_kpis').select('*'),
-        supabase.from('member_kpi_entries').select('*').order('entry_date'),
-        isAdmin
-          ? supabase.from('intern_users').select('*').eq('managed_by', profile.id).order('display_name')
-          : Promise.resolve({ data: null, error: null }),
-      ])
-      if (kpisRes.error) toast('Failed to load KPIs', 'error')
-      if (entriesRes.error) toast('Failed to load KPI entries', 'error')
-      if (kpisRes.data) setKpis(kpisRes.data as MemberKPI[])
-      if (entriesRes.data) setEntries(entriesRes.data as MemberKPIEntry[])
-      if (membersRes.data) setDirectReports(membersRes.data as TeamMember[])
-    } catch (err) {
-      console.error(err)
-      toast('Failed to load KPI data', 'error')
-    }
-    setLoading(false)
-  }, [profile, isAdmin, toast])
+  // Phase 3.1 — react-query reads. Each query has its own cache entry,
+  // so navigating away and back is instant until staleTime expires.
+  const kpisQuery = useQuery({
+    queryKey: kpiKeys.definitions(),
+    queryFn: fetchKPIDefinitions,
+    enabled: !!profile,
+  })
+  const entriesQuery = useQuery({
+    queryKey: kpiKeys.entries(),
+    queryFn: fetchKPIEntries,
+    enabled: !!profile,
+  })
+  const directReportsQuery = useQuery({
+    queryKey: teamMemberKeys.byManager(profile?.id ?? ''),
+    queryFn: () => fetchDirectReports(profile!.id),
+    enabled: !!profile && isAdmin,
+  })
 
-  useEffect(() => { loadData() }, [loadData])
+  // Surface query errors via the toast system (react-query puts them
+  // on `query.error`; we want a visible signal, not just a silent
+  // `isError` flag).
+  if (kpisQuery.error) toast('Failed to load KPIs', 'error')
+  if (entriesQuery.error) toast('Failed to load KPI entries', 'error')
+
+  const kpis: MemberKPI[] = kpisQuery.data ?? []
+  const entries: MemberKPIEntry[] = entriesQuery.data ?? []
+  const directReports = directReportsQuery.data ?? []
+  const loading = kpisQuery.isLoading || entriesQuery.isLoading
 
   const effectiveUserId = viewingUserId ?? profile?.id
-  const myKpis = kpis.filter(k => k.intern_id === effectiveUserId)
-  const getKpiEntries = (kpiId: string) => entries.filter(e => e.kpi_id === kpiId)
+  const myKpis = useMemo(
+    () => kpis.filter((k) => k.intern_id === effectiveUserId),
+    [kpis, effectiveUserId],
+  )
 
-  const handleLogEntry = async () => {
+  // Phase 3.5 — group entries by kpi_id once so per-card lookups stay
+  // O(1) instead of scanning the full entry list for every render of
+  // every KPI row.
+  const entriesByKpi = useMemo(() => {
+    const map = new Map<string, MemberKPIEntry[]>()
+    for (const e of entries) {
+      const arr = map.get(e.kpi_id)
+      if (arr) arr.push(e)
+      else map.set(e.kpi_id, [e])
+    }
+    return map
+  }, [entries])
+  const getKpiEntries = (kpiId: string) => entriesByKpi.get(kpiId) ?? []
+
+  // Phase 3.1 — mutation owns its own lifecycle; invalidating the
+  // entries query is what triggers the refetch (no hand-rolled reload).
+  const logEntryMutation = useMutation({
+    mutationFn: async (input: {
+      kpi_id: string
+      entry_date: string
+      value: number
+      notes: string | null
+    }) => {
+      const { error } = await supabase.from('member_kpi_entries').upsert(
+        {
+          kpi_id: input.kpi_id,
+          entry_date: input.entry_date,
+          value: input.value,
+          notes: input.notes,
+          entered_by: profile!.id,
+        },
+        { onConflict: 'kpi_id,entry_date' },
+      )
+      if (error) throw error
+    },
+    onSuccess: () => {
+      toast('Entry logged')
+      queryClient.invalidateQueries({ queryKey: kpiKeys.entries() })
+      setLogKpiId(null)
+      setLogValue('')
+      setLogNotes('')
+      setLogDate(localDateKey())
+    },
+    onError: () => {
+      toast('Failed to log entry', 'error')
+    },
+  })
+
+  const handleLogEntry = () => {
     if (!profile || !logKpiId || !logValue) return
-    setLogSubmitting(true)
-
-    const { error } = await supabase.from('member_kpi_entries').upsert({
+    logEntryMutation.mutate({
       kpi_id: logKpiId,
       entry_date: logDate,
       value: parseFloat(logValue),
       notes: logNotes || null,
-      entered_by: profile.id,
-    }, { onConflict: 'kpi_id,entry_date' })
-
-    if (error) toast('Failed to log entry', 'error')
-    else toast('Entry logged')
-
-    setLogSubmitting(false)
-    setLogKpiId(null)
-    setLogValue('')
-    setLogNotes('')
-    setLogDate(localDateKey())
-    loadData()
+    })
   }
+  const logSubmitting = logEntryMutation.isPending
 
   if (loading) return (
     <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
@@ -215,10 +245,17 @@ export default function KPIDashboard() {
             const trend = getKPITrend(kpiEntries)
             const trendColor = getTrendColor(trend)
             const stageInfo = FLYWHEEL_STAGES.find(s => s.key === kpi.flywheel_stage)
-            const chartData = kpiEntries.slice(-30).map(e => ({
-              date: e.entry_date.slice(5),
-              value: Number(e.value),
-            }))
+            // Phase 3.4 — downsample ensures the chart stays crisp even if
+            // a KPI accumulates a year of entries; 30-day windows stay
+            // verbatim (downsample is a no-op when points <= maxPoints).
+            const chartData = downsampleSingle(
+              kpiEntries.slice(-30).map((e) => ({
+                date: e.entry_date.slice(5),
+                value: Number(e.value),
+              })),
+              'value',
+              60,
+            )
             const latestValue = kpiEntries.length > 0 ? (kpiEntries[kpiEntries.length - 1]?.value ?? null) : null
             const unitLabel = UNIT_LABELS[kpi.unit] ?? ''
 

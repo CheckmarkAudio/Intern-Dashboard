@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
@@ -12,6 +12,18 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // Phase 6.4 — surface the "not provisioned" message if the user was
+  // rejected by AuthContext because no intern_users row exists.
+  useEffect(() => {
+    try {
+      const msg = sessionStorage.getItem('auth_no_profile')
+      if (msg) {
+        setError(msg)
+        sessionStorage.removeItem('auth_no_profile')
+      }
+    } catch { /* sessionStorage unavailable */ }
+  }, [])
 
   if (authLoading) {
     return (

@@ -1,20 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
+import { fetchPipelineEntries, pipelineKeys } from '../lib/queries/pipeline'
+import { fetchTeamMembers, teamMemberKeys } from '../lib/queries/teamMembers'
+import { isFollowupOverdue } from '../lib/dates'
 import {
-  Button, Input, Textarea, Select, Badge, EmptyState, PageHeader, Modal,
+  Button, Input, Textarea, Select, Badge, PageHeader,
   type BadgeVariant,
 } from '../components/ui'
+import PipelineEntryModal from '../components/pipeline/PipelineEntryModal'
 import type { ArtistPipelineEntry, TeamMember } from '../types'
 import {
   GitBranch,
   Plus,
   Save,
   Loader2,
-  Edit2,
-  Trash2,
   ChevronRight,
   AlertCircle,
   User,
@@ -52,16 +55,6 @@ const EMPTY_FORM: PipelineForm = {
   next_followup: '',
 }
 
-function isFollowupOverdue(nextFollowup: string | null): boolean {
-  if (!nextFollowup) return false
-  const d = nextFollowup.slice(0, 10)
-  const today = new Date()
-  const y = today.getFullYear()
-  const m = String(today.getMonth() + 1).padStart(2, '0')
-  const day = String(today.getDate()).padStart(2, '0')
-  return d < `${y}-${m}-${day}`
-}
-
 function notesPreview(notes: string | null, max = 72): string {
   if (!notes) return 'No notes'
   const t = notes.trim()
@@ -69,88 +62,55 @@ function notesPreview(notes: string | null, max = 72): string {
   return `${t.slice(0, max)}…`
 }
 
-function entryToForm(e: ArtistPipelineEntry): PipelineForm {
-  return {
-    artist_name: e.artist_name,
-    contact_email: e.contact_email ?? '',
-    contact_phone: e.contact_phone ?? '',
-    stage: e.stage,
-    assigned_to: e.assigned_to ?? '',
-    notes: e.notes ?? '',
-    next_followup: e.next_followup ? e.next_followup.slice(0, 10) : '',
-  }
-}
-
 export default function Pipeline() {
   useDocumentTitle('Pipeline - Checkmark Audio')
   const { profile } = useAuth()
   const { toast } = useToast()
-  const [entries, setEntries] = useState<ArtistPipelineEntry[]>([])
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [showAddForm, setShowAddForm] = useState(false)
   const [addForm, setAddForm] = useState<PipelineForm>(EMPTY_FORM)
   const [expanded, setExpanded] = useState<ArtistPipelineEntry | null>(null)
-  const [editForm, setEditForm] = useState<PipelineForm>(EMPTY_FORM)
   const [submittingAdd, setSubmittingAdd] = useState(false)
-  const [submittingEdit, setSubmittingEdit] = useState(false)
   const [advancingId, setAdvancingId] = useState<string | null>(null)
 
+  // Phase 3.1 — react-query reads. Both queries share cache across the
+  // app, so jumping Pipeline → KPI → Pipeline reuses data until the
+  // 30-second stale window lapses. Mutations invalidate pipelineKeys
+  // below instead of calling a hand-rolled reload.
+  const pipelineQuery = useQuery({
+    queryKey: pipelineKeys.list(),
+    queryFn: fetchPipelineEntries,
+    enabled: !!profile,
+  })
+  const teamQuery = useQuery({
+    queryKey: teamMemberKeys.list(),
+    queryFn: fetchTeamMembers,
+  })
+  const entries: ArtistPipelineEntry[] = pipelineQuery.data ?? []
+  const teamMembers: TeamMember[] = teamQuery.data ?? []
+  const loading = pipelineQuery.isLoading || teamQuery.isLoading
+
+  // Phase 3.5 — teamById was already memoized; keep it but sourced from
+  // the shared cache.
   const teamById = useMemo(() => {
     const m = new Map<string, TeamMember>()
     teamMembers.forEach((t) => m.set(t.id, t))
     return m
   }, [teamMembers])
 
-  const loadTeam = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('intern_users')
-      .select('*')
-      .order('display_name')
-    if (error) {
-      console.error('Load team error:', error)
-      toast(`Could not load team members: ${error.message}`, 'error')
-      return
-    }
-    if (data) setTeamMembers(data as TeamMember[])
-  }, [toast])
+  const reloadPipeline = () =>
+    queryClient.invalidateQueries({ queryKey: pipelineKeys.list() })
 
-  const loadPipeline = useCallback(async () => {
-    if (!profile) {
-      setLoading(false)
-      return
-    }
-    const { data, error } = await supabase
-      .from('artist_pipeline')
-      .select('*')
-      .order('updated_at', { ascending: false })
-    if (error) {
-      console.error('Load pipeline error:', error)
-      toast(`Could not load pipeline: ${error.message}`, 'error')
-      setLoading(false)
-      return
-    }
-    if (data) setEntries(data as ArtistPipelineEntry[])
-    setLoading(false)
-  }, [profile, toast])
-
-  useEffect(() => {
-    loadTeam()
-  }, [loadTeam])
-
-  useEffect(() => {
-    setLoading(true)
-    loadPipeline()
-  }, [loadPipeline])
-
-  const openExpanded = (e: ArtistPipelineEntry) => {
-    setExpanded(e)
-    setEditForm(entryToForm(e))
+  // Surface query errors via toast, same shape as the old callbacks.
+  if (pipelineQuery.error) {
+    toast(`Could not load pipeline: ${(pipelineQuery.error as Error).message}`, 'error')
+  }
+  if (teamQuery.error) {
+    toast(`Could not load team members: ${(teamQuery.error as Error).message}`, 'error')
   }
 
-  const closeExpanded = () => {
-    setExpanded(null)
-  }
+  const openExpanded = (e: ArtistPipelineEntry) => setExpanded(e)
+  const closeExpanded = () => setExpanded(null)
 
   const handleAddSubmit = async (ev: React.FormEvent) => {
     ev.preventDefault()
@@ -175,41 +135,7 @@ export default function Pipeline() {
     toast('Artist added', 'success')
     setShowAddForm(false)
     setAddForm(EMPTY_FORM)
-    loadPipeline()
-  }
-
-  const handleEditSave = async (ev: React.FormEvent) => {
-    ev.preventDefault()
-    if (!expanded) return
-    setSubmittingEdit(true)
-    const payload = {
-      artist_name: editForm.artist_name.trim(),
-      contact_email: editForm.contact_email.trim() || null,
-      contact_phone: editForm.contact_phone.trim() || null,
-      stage: editForm.stage,
-      assigned_to: editForm.assigned_to || null,
-      notes: editForm.notes.trim() || null,
-      next_followup: editForm.next_followup || null,
-    }
-    const { error } = await supabase
-      .from('artist_pipeline')
-      .update(payload)
-      .eq('id', expanded.id)
-    setSubmittingEdit(false)
-    if (error) {
-      console.error(error)
-      toast(error.message || 'Could not save changes', 'error')
-      return
-    }
-    toast('Saved', 'success')
-    loadPipeline()
-    const { data } = await supabase.from('artist_pipeline').select('*').eq('id', expanded.id).maybeSingle()
-    if (data) {
-      setExpanded(data as ArtistPipelineEntry)
-      setEditForm(entryToForm(data as ArtistPipelineEntry))
-    } else {
-      closeExpanded()
-    }
+    reloadPipeline()
   }
 
   const handleAdvance = async (entry: ArtistPipelineEntry, e?: React.SyntheticEvent) => {
@@ -231,25 +157,10 @@ export default function Pipeline() {
       return
     }
     toast(`Moved to ${nextStage.label}`, 'success')
-    await loadPipeline()
+    await reloadPipeline()
     if (expanded?.id === entry.id) {
       setExpanded({ ...entry, stage: next })
-      setEditForm((f) => ({ ...f, stage: next }))
     }
-  }
-
-  const handleDelete = async () => {
-    if (!expanded) return
-    if (!confirm(`Remove "${expanded.artist_name}" from the pipeline?`)) return
-    const { error } = await supabase.from('artist_pipeline').delete().eq('id', expanded.id)
-    if (error) {
-      console.error(error)
-      toast(error.message || 'Could not delete', 'error')
-      return
-    }
-    toast('Artist removed', 'success')
-    closeExpanded()
-    loadPipeline()
   }
 
   const assigneeLabel = (id: string | null) => {
@@ -477,105 +388,14 @@ export default function Pipeline() {
         </div>
       </div>
 
-      <Modal
-        open={!!expanded}
+      <PipelineEntryModal
+        entry={expanded}
+        teamMembers={teamMembers}
+        advancingId={advancingId}
         onClose={closeExpanded}
-        title={
-          <span className="flex items-center gap-2">
-            <Edit2 size={18} className="text-gold" aria-hidden="true" />
-            {expanded?.artist_name ?? ''}
-          </span>
-        }
-        size="lg"
-        locked={submittingEdit}
-      >
-        <form onSubmit={handleEditSave} className="space-y-4">
-          <Input
-            id="pipe-edit-name"
-            label="Artist name"
-            required
-            value={editForm.artist_name}
-            onChange={(e) => setEditForm({ ...editForm, artist_name: e.target.value })}
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              id="pipe-edit-email"
-              label="Email"
-              type="email"
-              value={editForm.contact_email}
-              onChange={(e) => setEditForm({ ...editForm, contact_email: e.target.value })}
-            />
-            <Input
-              id="pipe-edit-phone"
-              label="Phone"
-              value={editForm.contact_phone}
-              onChange={(e) => setEditForm({ ...editForm, contact_phone: e.target.value })}
-            />
-          </div>
-          <Select
-            id="pipe-edit-stage"
-            label="Stage"
-            value={editForm.stage}
-            onChange={(e) => setEditForm({ ...editForm, stage: e.target.value as ArtistPipelineEntry['stage'] })}
-          >
-            {STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-          </Select>
-          <Select
-            id="pipe-edit-assigned"
-            label="Assigned to"
-            value={editForm.assigned_to}
-            onChange={(e) => setEditForm({ ...editForm, assigned_to: e.target.value })}
-          >
-            <option value="">Unassigned</option>
-            {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.display_name}</option>)}
-          </Select>
-          <Input
-            id="pipe-edit-followup"
-            label="Next follow-up"
-            type="date"
-            value={editForm.next_followup}
-            onChange={(e) => setEditForm({ ...editForm, next_followup: e.target.value })}
-          />
-          <Textarea
-            id="pipe-edit-notes"
-            label="Notes"
-            rows={4}
-            value={editForm.notes}
-            onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-          />
-          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
-            {expanded && editForm.stage !== 'alumni' && (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={(ev) => handleAdvance(expanded, ev)}
-                loading={advancingId === expanded.id}
-                iconLeft={advancingId !== expanded.id ? <ChevronRight size={16} aria-hidden="true" /> : undefined}
-                className="text-gold hover:text-gold"
-              >
-                Advance stage
-              </Button>
-            )}
-            <Button
-              type="button"
-              variant="danger"
-              onClick={handleDelete}
-              iconLeft={<Trash2 size={16} aria-hidden="true" />}
-            >
-              Delete
-            </Button>
-            <div className="flex-1 min-w-[120px]" />
-            <Button
-              type="submit"
-              variant="primary"
-              loading={submittingEdit}
-              iconLeft={!submittingEdit ? <Save size={16} aria-hidden="true" /> : undefined}
-            >
-              Save
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        onSaved={() => { reloadPipeline(); closeExpanded() }}
+        onAdvance={handleAdvance}
+      />
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { useChecklist, type ChecklistItemRow, type PendingTaskEdit } from '../hooks/useChecklist'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../components/Toast'

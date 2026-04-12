@@ -14,6 +14,7 @@ import {
   type BadgeVariant,
 } from '../../components/ui'
 import ApprovalsPanel from '../../components/admin/ApprovalsPanel'
+import MemberAssignmentsPanel from '../../components/admin/MemberAssignmentsPanel'
 import { loadWeekEvents } from '../../lib/calendar'
 import { addDays, startOfWeek } from '../../lib/time'
 import type { TeamMember, ChecklistItem, CalendarEvent } from '../../types'
@@ -617,6 +618,14 @@ function TasksTab({ selectedMember }: { selectedMember: TeamMember | null }) {
           </div>
         </div>
       )}
+
+      {/* Phase 6.3.5 — Assignment surfaces (templates, projects,
+          students, pipeline artists). Lets admins fully configure the
+          member's workload from one place without bouncing between
+          Templates, Projects, Education, and Pipeline. */}
+      <div className="pt-4 border-t border-border">
+        <MemberAssignmentsPanel member={selectedMember} />
+      </div>
     </div>
   )
 }

@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../components/Toast'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
-import type { DeliverableSubmission, PlatformMetric, TeamMember } from '../types'
+import type { DeliverableSubmission, PlatformMetric } from '../types'
 import {
   Pencil,
   ExternalLink,

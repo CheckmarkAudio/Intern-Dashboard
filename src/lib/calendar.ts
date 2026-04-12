@@ -7,14 +7,8 @@
 
 import { supabase } from './supabase'
 import { addDays, startOfWeek } from './time'
+import { localDateKey } from './dates'
 import type { CalendarEvent } from '../types'
-
-function toYMD(d: Date): string {
-  const y = d.getFullYear()
-  const m = (d.getMonth() + 1).toString().padStart(2, '0')
-  const day = d.getDate().toString().padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
 
 export interface LoadWeekEventsOptions {
   /** Monday of the week we want. If omitted, uses the current week. */
@@ -45,8 +39,8 @@ export async function loadWeekEvents({
 }: LoadWeekEventsOptions = {}): Promise<LoadWeekEventsResult> {
   const weekStart = startOfWeek(weekStartArg ?? new Date())
   const weekEnd = addDays(weekStart, 6)
-  const weekStartYMD = toYMD(weekStart)
-  const weekEndYMD = toYMD(weekEnd)
+  const weekStartYMD = localDateKey(weekStart)
+  const weekEndYMD = localDateKey(weekEnd)
 
   // Fetch sessions + schedule templates + member list (for names in
   // merged team view) in parallel.
@@ -122,7 +116,7 @@ export async function loadWeekEvents({
     if (!row.focus_areas || row.focus_areas.length === 0) continue
     if (scope !== 'team' && row.intern_id !== scope) continue
     const dayIdx = Math.max(0, Math.min(6, (row.day_of_week ?? 1) - 1))
-    const date = toYMD(addDays(weekStart, dayIdx))
+    const date = localDateKey(addDays(weekStart, dayIdx))
     events.push({
       id: `schedule:${row.id}`,
       kind: 'schedule_focus',

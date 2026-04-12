@@ -8,6 +8,7 @@ import {
   formatTimeDisplay,
   isSameDay,
 } from '../../lib/time'
+import { localDateKey } from '../../lib/dates'
 import type { CalendarEvent } from '../../types'
 import Badge, { type BadgeVariant } from './Badge'
 import Button from './Button'
@@ -68,10 +69,7 @@ export function CalendarWeek({
     return { allDayByDay: allDay, timedByDay: timed }
   }, [events])
 
-  const todayStr = useMemo(() => {
-    const t = new Date()
-    return `${t.getFullYear()}-${pad2(t.getMonth() + 1)}-${pad2(t.getDate())}`
-  }, [])
+  const todayStr = useMemo(() => localDateKey(new Date()), [])
 
   const rangeLabel = useMemo(() => {
     const end = addDays(weekStart, 6)
@@ -111,7 +109,7 @@ export function CalendarWeek({
       <div className="grid grid-cols-[56px_repeat(7,minmax(0,1fr))] border-b border-border">
         <div aria-hidden="true" />
         {days.map((d) => {
-          const key = toYMD(d)
+          const key = localDateKey(d)
           const isToday = key === todayStr
           return (
             <div
@@ -142,7 +140,7 @@ export function CalendarWeek({
             <span className="text-[9px] text-text-light uppercase tracking-wide">Focus</span>
           </div>
           {days.map((d) => {
-            const key = toYMD(d)
+            const key = localDateKey(d)
             const list = allDayByDay.get(key) ?? []
             return (
               <div
@@ -180,7 +178,7 @@ export function CalendarWeek({
         </div>
 
         {days.map((d) => {
-          const key = toYMD(d)
+          const key = localDateKey(d)
           const list = timedByDay.get(key) ?? []
           const isToday = isSameDay(d, new Date())
           return (
@@ -237,14 +235,6 @@ export function CalendarWeek({
       </div>
     </div>
   )
-}
-
-function pad2(n: number): string {
-  return n.toString().padStart(2, '0')
-}
-
-function toYMD(d: Date): string {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
 }
 
 function badgeForEvent(ev: CalendarEvent): BadgeVariant {

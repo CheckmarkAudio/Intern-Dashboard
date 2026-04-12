@@ -128,9 +128,14 @@ export default function BusinessHealth() {
           .select('id', { count: 'exact', head: true })
           .gte('submission_date', weekStart)
           .lte('submission_date', today),
+        // Phase 3.3 — single nested select. Previously this fetched
+        // instances first, then fired a second query for their items
+        // (classic N+1). PostgREST handles the join for free with
+        // `intern_checklist_items(is_completed)`, so one round trip
+        // now returns the completion flags already grouped by instance.
         supabase
           .from('intern_checklist_instances')
-          .select('id, intern_id')
+          .select('id, intern_id, intern_checklist_items(is_completed)')
           .eq('frequency', 'daily')
           .eq('period_date', today),
       ])
@@ -150,37 +155,23 @@ export default function BusinessHealth() {
 
       setWeekSubmissionCount(typeof weekCount === 'number' ? weekCount : 0)
 
-      const instList = instances ?? []
+      // Phase 3.3 — items arrive as a nested array on each instance from
+      // the joined select above, so we count in memory without a second
+      // round trip.
+      type InstanceWithItems = {
+        id: string
+        intern_id: string
+        intern_checklist_items: Array<{ is_completed: boolean }>
+      }
+      const instList = (instances ?? []) as InstanceWithItems[]
       setChecklistEligible(instList.length)
 
-      if (instList.length === 0) {
-        setChecklistDoneCount(0)
-      } else {
-        const instanceIds = instList.map((i: { id: string }) => i.id)
-        const { data: items, error: itemsErr } = await supabase
-          .from('intern_checklist_items')
-          .select('instance_id, is_completed')
-          .in('instance_id', instanceIds)
-
-        if (itemsErr) {
-          toast('Could not load checklist completion data', 'error')
-          setChecklistDoneCount(0)
-        } else {
-          const byInstance = new Map<string, boolean[]>()
-          for (const row of items ?? []) {
-            const r = row as { instance_id: string; is_completed: boolean }
-            const arr = byInstance.get(r.instance_id) ?? []
-            arr.push(r.is_completed)
-            byInstance.set(r.instance_id, arr)
-          }
-          let done = 0
-          for (const inst of instList as { id: string }[]) {
-            const flags = byInstance.get(inst.id)
-            if (flags && flags.length > 0 && flags.every(Boolean)) done++
-          }
-          setChecklistDoneCount(done)
-        }
+      let done = 0
+      for (const inst of instList) {
+        const items = inst.intern_checklist_items ?? []
+        if (items.length > 0 && items.every((i) => i.is_completed)) done++
       }
+      setChecklistDoneCount(done)
     } catch (e) {
       toast('Failed to load business health', 'error')
     } finally {

@@ -1,0 +1,249 @@
+// Phase 6.3.5 — Assignment queries for the admin Hub's "Tasks" tab.
+//
+// Centralizes the read/write paths for assigning things to a team
+// member: recurring templates, client projects, education students,
+// and artist-pipeline entries. Keeps TeamManager.tsx (Add Member
+// flow) and the Hub's MemberAssignmentsPanel on the same code path so
+// new assignment types can be added in one place.
+//
+// KPI assignment is intentionally NOT here. KPIs are measurements
+// (`kpi_entries`) not assignments — there's no single table to flip.
+// If/when KPI *definitions* become owned-by-member, extend this file.
+
+import { supabase } from '../supabase'
+import type {
+  ReportTemplate,
+  TaskAssignment,
+  Project,
+  EducationStudent,
+  ArtistPipelineEntry,
+} from '../../types'
+
+// ─── Template assignments (task_assignments rows) ────────────────────
+
+/** Row shape we need for the templates section: the assignment id plus
+ * the joined template record. `position` is included so the UI can warn
+ * when a row is position-scoped (removing it affects multiple members). */
+export interface MemberTemplateAssignment {
+  assignment_id: string
+  template: ReportTemplate
+  position: string | null
+}
+
+/** Fetch every active task_assignments row tied to this member, either
+ * directly (`intern_id = memberId`) or via their position. The UI
+ * differentiates the two because unassigning a position-scoped row
+ * affects every member in that position. */
+export async function loadMemberTemplateAssignments(
+  memberId: string,
+  memberPosition: string | null,
+): Promise<MemberTemplateAssignment[]> {
+  // OR filter: intern_id = memberId OR (position = memberPosition AND intern_id IS NULL)
+  // supabase-js doesn't support the NULL-check inside an `.or()`, so we
+  // run two queries and merge.
+  const direct = supabase
+    .from('task_assignments')
+    .select('id, position, report_templates(*)')
+    .eq('intern_id', memberId)
+    .eq('is_active', true)
+
+  const positional = memberPosition
+    ? supabase
+        .from('task_assignments')
+        .select('id, position, report_templates(*)')
+        .eq('position', memberPosition)
+        .is('intern_id', null)
+        .eq('is_active', true)
+    : Promise.resolve({ data: [] as unknown[], error: null })
+
+  const [directRes, positionalRes] = await Promise.all([direct, positional])
+  if ((directRes as { error: unknown }).error) {
+    console.error('[queries/assignments] direct lookup failed:', (directRes as { error: unknown }).error)
+  }
+  if ((positionalRes as { error: unknown }).error) {
+    console.error('[queries/assignments] positional lookup failed:', (positionalRes as { error: unknown }).error)
+  }
+
+  const rows = [
+    ...((directRes as { data: unknown[] | null }).data ?? []),
+    ...((positionalRes as { data: unknown[] | null }).data ?? []),
+  ] as Array<{ id: string; position: string | null; report_templates: ReportTemplate | null }>
+
+  return rows
+    .filter((r) => r.report_templates !== null)
+    .map((r) => ({
+      assignment_id: r.id,
+      template: r.report_templates as ReportTemplate,
+      position: r.position,
+    }))
+}
+
+/** Add templates to a member. Direct (intern_id) assignments only —
+ * position-scoped rows are managed elsewhere. Returns the rows written. */
+export async function assignTemplatesDirect(
+  memberId: string,
+  templateIds: string[],
+  assignedBy: string | null | undefined,
+): Promise<TaskAssignment[]> {
+  if (templateIds.length === 0) return []
+  const inserts = templateIds.map((template_id) => ({
+    template_id,
+    intern_id: memberId,
+    position: null as string | null,
+    is_active: true,
+    assigned_by: assignedBy ?? null,
+  }))
+  const { data, error } = await supabase
+    .from('task_assignments')
+    .insert(inserts)
+    .select('*')
+  if (error) {
+    console.error('[queries/assignments] assignTemplatesDirect failed:', error)
+    throw new Error(error.message)
+  }
+  return (data ?? []) as TaskAssignment[]
+}
+
+/** Remove a single task_assignments row. The UI confirms before
+ * calling this so we don't need a soft-delete path. */
+export async function removeTemplateAssignment(assignmentId: string): Promise<void> {
+  const { error } = await supabase
+    .from('task_assignments')
+    .delete()
+    .eq('id', assignmentId)
+  if (error) {
+    console.error('[queries/assignments] removeTemplateAssignment failed:', error)
+    throw new Error(error.message)
+  }
+}
+
+// ─── Generic "flip assigned_to" assignment tables ────────────────────
+// projects, education_students, artist_pipeline all share the same
+// shape: a single `assigned_to uuid` column on the row. We expose a
+// typed reader for each plus a shared writer.
+
+export async function loadProjectsForMember(memberId: string): Promise<Project[]> {
+  const { data, error } = await supabase
+    .from('projects')
+    .select('*')
+    .eq('assigned_to', memberId)
+    .order('created_at', { ascending: false })
+  if (error) {
+    console.error('[queries/assignments] loadProjectsForMember failed:', error)
+    return []
+  }
+  return (data ?? []) as Project[]
+}
+
+/** Fetch projects currently without an assignee, or (if `includeAll`)
+ * every project regardless of assignee. The picker uses `includeAll`
+ * and flags already-assigned rows with a warning. */
+export async function loadAssignableProjects(includeAll = false): Promise<Project[]> {
+  const q = supabase
+    .from('projects')
+    .select('*')
+    .neq('status', 'archived')
+    .order('created_at', { ascending: false })
+  const { data, error } = includeAll ? await q : await q.is('assigned_to', null)
+  if (error) {
+    console.error('[queries/assignments] loadAssignableProjects failed:', error)
+    return []
+  }
+  return (data ?? []) as Project[]
+}
+
+export async function setProjectAssignee(
+  projectId: string,
+  memberId: string | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from('projects')
+    .update({ assigned_to: memberId })
+    .eq('id', projectId)
+  if (error) {
+    console.error('[queries/assignments] setProjectAssignee failed:', error)
+    throw new Error(error.message)
+  }
+}
+
+export async function loadStudentsForMember(memberId: string): Promise<EducationStudent[]> {
+  const { data, error } = await supabase
+    .from('education_students')
+    .select('*')
+    .eq('assigned_to', memberId)
+    .order('created_at', { ascending: false })
+  if (error) {
+    console.error('[queries/assignments] loadStudentsForMember failed:', error)
+    return []
+  }
+  return (data ?? []) as EducationStudent[]
+}
+
+export async function loadAssignableStudents(includeAll = false): Promise<EducationStudent[]> {
+  const q = supabase
+    .from('education_students')
+    .select('*')
+    .neq('status', 'completed')
+    .order('created_at', { ascending: false })
+  const { data, error } = includeAll ? await q : await q.is('assigned_to', null)
+  if (error) {
+    console.error('[queries/assignments] loadAssignableStudents failed:', error)
+    return []
+  }
+  return (data ?? []) as EducationStudent[]
+}
+
+export async function setStudentAssignee(
+  studentId: string,
+  memberId: string | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from('education_students')
+    .update({ assigned_to: memberId })
+    .eq('id', studentId)
+  if (error) {
+    console.error('[queries/assignments] setStudentAssignee failed:', error)
+    throw new Error(error.message)
+  }
+}
+
+export async function loadArtistsForMember(memberId: string): Promise<ArtistPipelineEntry[]> {
+  const { data, error } = await supabase
+    .from('artist_pipeline')
+    .select('*')
+    .eq('assigned_to', memberId)
+    .order('created_at', { ascending: false })
+  if (error) {
+    console.error('[queries/assignments] loadArtistsForMember failed:', error)
+    return []
+  }
+  return (data ?? []) as ArtistPipelineEntry[]
+}
+
+export async function loadAssignableArtists(includeAll = false): Promise<ArtistPipelineEntry[]> {
+  const q = supabase
+    .from('artist_pipeline')
+    .select('*')
+    .neq('stage', 'alumni')
+    .order('created_at', { ascending: false })
+  const { data, error } = includeAll ? await q : await q.is('assigned_to', null)
+  if (error) {
+    console.error('[queries/assignments] loadAssignableArtists failed:', error)
+    return []
+  }
+  return (data ?? []) as ArtistPipelineEntry[]
+}
+
+export async function setArtistAssignee(
+  artistId: string,
+  memberId: string | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from('artist_pipeline')
+    .update({ assigned_to: memberId })
+    .eq('id', artistId)
+  if (error) {
+    console.error('[queries/assignments] setArtistAssignee failed:', error)
+    throw new Error(error.message)
+  }
+}
