@@ -1,530 +1,824 @@
-import { useState } from 'react'
-import { useChecklist, type ChecklistItemRow, type PendingTaskEdit } from '../hooks/useChecklist'
-import { useAuth } from '../contexts/AuthContext'
-import { useToast } from '../components/Toast'
-import { localDateKey } from '../lib/dates'
+import { useMemo, useState } from 'react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
-import { Badge, Button, Input } from '../components/ui'
-import ConfirmModal from '../components/ConfirmModal'
-import {
-  Check, ChevronLeft, ChevronRight, ListChecks, Plus, Trash2, Pencil, X,
-  Clock,
-} from 'lucide-react'
+import { useTasks } from '../contexts/TaskContext'
+import CreateTaskModal from '../components/CreateTaskModal'
+import { Check, Send, Plus, Clock, Circle } from 'lucide-react'
 
-// Emoji chip per well-known category, falls back to 📌 for any custom one.
-const CATEGORY_META: Record<string, string> = {
-  'Studio Readiness': '🎙️',
-  'Content Support': '📸',
-  'Admin & Organization': '📋',
-  'End-of-Day Reset': '🔒',
+/* ── Position / role definitions ── */
+const POSITIONS = ['Marketing', 'Media', 'Engineer', 'Intern', 'Administration'] as const
+type Position = typeof POSITIONS[number]
+
+const POSITION_COLORS: Record<Position, { color: string; bg: string }> = {
+  Marketing: { color: '#fbbf24', bg: 'rgba(245, 158, 11, 0.12)' },
+  Media: { color: '#a78bfa', bg: 'rgba(139, 92, 246, 0.12)' },
+  Engineer: { color: '#38bdf8', bg: 'rgba(14, 165, 233, 0.12)' },
+  Intern: { color: '#34d399', bg: 'rgba(16, 185, 129, 0.12)' },
+  Administration: { color: '#fb7185', bg: 'rgba(244, 63, 94, 0.12)' },
 }
 
-export default function DailyChecklist() {
-  useDocumentTitle('Daily Tasks - Checkmark Audio')
-  const { isAdmin } = useAuth()
-  const { toast } = useToast()
-  const [date, setDate] = useState(new Date())
+type RoleTask = { id: string; title: string; assigned: string; due: string; priority: 'HIGH' | 'MED' | 'LOW'; done: boolean }
+type RoleProject = { id: string; name: string; status: string; statusColor: string; statusBg: string; due: string }
 
-  const {
-    grouped,
-    loading,
-    toggleItem,
-    completedCount,
-    totalCount,
-    percentage,
-    // Member-side (propose) actions — routed through task_edit_requests queue.
-    proposeAddItem,
-    proposeRenameItem,
-    proposeDeleteItem,
-    // Admin-side (direct) actions — bypass the queue entirely.
-    addItem,
-    renameItem,
-    deleteItem,
-    // Pending approval state for badges + member pending queue display.
-    pendingByItemId,
-    pendingAdds,
-  } = useChecklist('daily', date)
+const ROLE_TASKS: Record<Position, RoleTask[]> = {
+  Marketing: [
+    { id: 'mk1', title: 'Draft Q2 social media calendar', assigned: 'Apr 10', due: 'Today, 5:00 PM', priority: 'HIGH', done: false },
+    { id: 'mk2', title: 'Review Instagram analytics report', assigned: 'Apr 11', due: 'Tomorrow, 10:00 AM', priority: 'MED', done: false },
+    { id: 'mk3', title: 'Create ad copy for podcast promo', assigned: 'Apr 8', due: 'Wed, Apr 15', priority: 'MED', done: true },
+    { id: 'mk4', title: 'Update brand guidelines doc', assigned: 'Apr 9', due: 'Fri, Apr 17', priority: 'LOW', done: false },
+    { id: 'mk5', title: 'Schedule newsletter send', assigned: 'Apr 12', due: 'Today, 3:00 PM', priority: 'HIGH', done: true },
+  ],
+  Media: [
+    { id: 'md1', title: 'Edit podcast episode 14', assigned: 'Apr 11', due: 'Today, 6:00 PM', priority: 'HIGH', done: false },
+    { id: 'md2', title: 'Color grade promo video', assigned: 'Apr 10', due: 'Tomorrow, 2:00 PM', priority: 'MED', done: false },
+    { id: 'md3', title: 'Export stems for client review', assigned: 'Apr 12', due: 'Today, 4:00 PM', priority: 'HIGH', done: true },
+    { id: 'md4', title: 'Upload B-roll to shared drive', assigned: 'Apr 9', due: 'Wed, Apr 15', priority: 'LOW', done: false },
+  ],
+  Engineer: [
+    { id: 'en1', title: 'Mix session for Stanford project', assigned: 'Apr 11', due: 'Today, 5:00 PM', priority: 'HIGH', done: false },
+    { id: 'en2', title: 'Master final tracks — Album Production', assigned: 'Apr 10', due: 'Tomorrow, 12:00 PM', priority: 'HIGH', done: false },
+    { id: 'en3', title: 'Calibrate Studio A monitors', assigned: 'Apr 8', due: 'Wed, Apr 15', priority: 'MED', done: true },
+    { id: 'en4', title: 'Backup session files to NAS', assigned: 'Apr 9', due: 'Fri, Apr 17', priority: 'LOW', done: false },
+    { id: 'en5', title: 'Patch bay maintenance check', assigned: 'Apr 12', due: 'Today, 2:00 PM', priority: 'MED', done: true },
+  ],
+  Intern: [
+    { id: 'in1', title: 'Shadow Jordan on mixing session', assigned: 'Apr 12', due: 'Today, 3:00 PM', priority: 'HIGH', done: false },
+    { id: 'in2', title: 'Complete audio fundamentals module 3', assigned: 'Apr 7', due: 'Tomorrow, 5:00 PM', priority: 'MED', done: false },
+    { id: 'in3', title: 'Organize sample library folders', assigned: 'Apr 8', due: 'Wed, Apr 15', priority: 'LOW', done: true },
+    { id: 'in4', title: 'Submit weekly learning reflection', assigned: 'Apr 11', due: 'Fri, Apr 17', priority: 'MED', done: false },
+    { id: 'in5', title: 'Prep studio for afternoon session', assigned: 'Apr 12', due: 'Today, 1:00 PM', priority: 'HIGH', done: true },
+  ],
+  Administration: [
+    { id: 'ad1', title: 'Process invoices for March sessions', assigned: 'Apr 10', due: 'Today, 5:00 PM', priority: 'HIGH', done: false },
+    { id: 'ad2', title: 'Update team availability calendar', assigned: 'Apr 11', due: 'Tomorrow, 9:00 AM', priority: 'MED', done: false },
+    { id: 'ad3', title: 'File equipment receipts', assigned: 'Apr 8', due: 'Wed, Apr 15', priority: 'LOW', done: true },
+    { id: 'ad4', title: 'Renew software licenses', assigned: 'Apr 9', due: 'Fri, Apr 17', priority: 'HIGH', done: false },
+    { id: 'ad5', title: 'Order studio supplies', assigned: 'Apr 12', due: 'Today, 4:00 PM', priority: 'MED', done: true },
+  ],
+}
 
-  const isToday = localDateKey(date) === localDateKey()
+const ROLE_PROJECTS: Record<Position, RoleProject[]> = {
+  Marketing: [
+    { id: 'mp1', name: 'Q2 Campaign Launch', status: 'Active', statusColor: '#34d399', statusBg: 'rgba(16, 185, 129, 0.15)', due: 'May 1' },
+    { id: 'mp2', name: 'Brand Refresh Assets', status: 'In Review', statusColor: '#fbbf24', statusBg: 'rgba(245, 158, 11, 0.15)', due: 'Apr 28' },
+  ],
+  Media: [
+    { id: 'mdp1', name: 'Podcast Season 2 Edit', status: 'Active', statusColor: '#34d399', statusBg: 'rgba(16, 185, 129, 0.15)', due: 'Jun 1' },
+    { id: 'mdp2', name: 'Promo Reel 2026', status: 'Editing', statusColor: '#a78bfa', statusBg: 'rgba(139, 92, 246, 0.15)', due: 'May 15' },
+  ],
+  Engineer: [
+    { id: 'ep1', name: 'Album Production — Stanford', status: 'Recording', statusColor: '#38bdf8', statusBg: 'rgba(14, 165, 233, 0.15)', due: 'May 15' },
+    { id: 'ep2', name: 'Studio B Renovation', status: 'Planning', statusColor: '#fbbf24', statusBg: 'rgba(245, 158, 11, 0.15)', due: 'Jun 30' },
+  ],
+  Intern: [
+    { id: 'ip1', name: 'Audio Fundamentals Course', status: 'In Progress', statusColor: '#34d399', statusBg: 'rgba(16, 185, 129, 0.15)', due: 'May 30' },
+    { id: 'ip2', name: 'Sample Library Organization', status: 'Active', statusColor: '#34d399', statusBg: 'rgba(16, 185, 129, 0.15)', due: 'Apr 25' },
+  ],
+  Administration: [
+    { id: 'ap1', name: 'Q1 Financial Close', status: 'Active', statusColor: '#34d399', statusBg: 'rgba(16, 185, 129, 0.15)', due: 'Apr 20' },
+    { id: 'ap2', name: 'Equipment Inventory Audit', status: 'Scheduled', statusColor: '#94a3b8', statusBg: 'rgba(148, 163, 184, 0.12)', due: 'May 5' },
+  ],
+}
 
-  const shift = (days: number) => {
-    const d = new Date(date)
-    d.setDate(d.getDate() + days)
-    setDate(d)
-  }
+/* ── Flywheel stages ── */
+const STAGES = [
+  { name: 'Deliver', subtitle: 'Client Fulfillment', color: '#34d399', bg: 'rgba(16, 185, 129, 0.12)', border: 'rgba(16, 185, 129, 0.5)', target: '95% on-time delivery' },
+  { name: 'Capture', subtitle: 'Lead Capture Rate', color: '#38bdf8', bg: 'rgba(14, 165, 233, 0.12)', border: 'rgba(14, 165, 233, 0.5)', target: '80% lead-to-session' },
+  { name: 'Share', subtitle: 'Content Distribution', color: '#a78bfa', bg: 'rgba(139, 92, 246, 0.12)', border: 'rgba(139, 92, 246, 0.5)', target: '3 posts/week' },
+  { name: 'Attract', subtitle: 'Consult Demand', color: '#fbbf24', bg: 'rgba(245, 158, 11, 0.12)', border: 'rgba(245, 158, 11, 0.5)', target: '10 inquiries/month' },
+  { name: 'Book', subtitle: 'Paid Sessions', color: '#fb7185', bg: 'rgba(244, 63, 94, 0.12)', border: 'rgba(244, 63, 94, 0.5)', target: '20 sessions/month' },
+] as const
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20" role="status" aria-live="polite">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-gold/20 border-t-gold" aria-hidden="true" />
-        <span className="sr-only">Loading…</span>
-      </div>
-    )
-  }
 
-  const categories = Object.keys(grouped)
-
+/** Tiny SVG gauge meter — needle reacts to percentage */
+function HealthGauge({ pct }: { pct: number }) {
+  // Needle angle: 0% = -90° (far left/red), 100% = 90° (far right/green)
+  const angle = -90 + (pct / 100) * 180
   return (
-    <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Daily Tasks</h1>
-          <p className="text-text-muted text-sm mt-1">
-            {isToday
-              ? "Today's tasks"
-              : date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => shift(-1)}
-            className="p-2 hover:bg-surface-hover rounded-lg transition-colors focus-ring"
-            aria-label="Previous day"
-          >
-            <ChevronLeft size={20} aria-hidden="true" />
-          </button>
-          <button
-            onClick={() => setDate(new Date())}
-            className="px-3 py-1.5 text-sm font-medium bg-surface-alt hover:bg-surface-hover rounded-lg transition-colors focus-ring"
-          >
-            Today
-          </button>
-          <button
-            onClick={() => shift(1)}
-            className="p-2 hover:bg-surface-hover rounded-lg transition-colors focus-ring"
-            aria-label="Next day"
-          >
-            <ChevronRight size={20} aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-
-      {/* Progress */}
-      <div className="bg-surface rounded-2xl border border-border p-5 shadow-sm">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium flex items-center gap-2">
-            <ListChecks size={16} className="text-gold" aria-hidden="true" />
-            Overall Progress
-          </span>
-          <span className="text-sm font-bold">{completedCount}/{totalCount}</span>
-        </div>
-        <div
-          className="h-3 bg-surface-alt rounded-full overflow-hidden"
-          role="progressbar"
-          aria-valuenow={percentage}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label={`Daily progress: ${percentage}%`}
-        >
-          <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{
-              width: `${percentage}%`,
-              backgroundColor: percentage === 100 ? '#10b981' : percentage > 50 ? '#C9A84C' : '#f59e0b',
-            }}
-          />
-        </div>
-        {percentage === 100 && totalCount > 0 && (
-          <p className="text-sm text-emerald-400 font-medium mt-2" aria-live="polite">All tasks completed!</p>
-        )}
-      </div>
-
-      {/* Member-side pending queue — only rendered when there's something to show.
-          Admins edit directly, so they never have pending rows of their own. */}
-      {!isAdmin && (pendingAdds.length > 0 || pendingByItemId.size > 0) && (
-        <PendingQueue
-          pendingAdds={pendingAdds}
-          pendingByItemId={pendingByItemId}
-        />
-      )}
-
-      {/* Categories */}
-      {categories.length === 0 ? (
-        <div className="bg-surface rounded-2xl border border-border p-12 text-center shadow-sm">
-          <ListChecks size={40} className="mx-auto mb-3 text-text-light opacity-40" />
-          <p className="text-text-muted font-medium">No tasks for this date</p>
-          <p className="text-sm text-text-light mt-1">Tasks are auto-generated. Check back on a workday.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {categories.map((category, catIdx) => (
-            <CategoryCard
-              key={category}
-              category={category}
-              items={grouped[category] ?? []}
-              catIdx={catIdx}
-              isAdmin={isAdmin}
-              isToday={isToday}
-              toggleItem={toggleItem}
-              pendingByItemId={pendingByItemId}
-              onProposeRename={async (id, text) => {
-                const { error } = await proposeRenameItem(id, text)
-                if (error) toast(error, 'error')
-                else toast('Rename sent for approval')
-              }}
-              onProposeDelete={async (id) => {
-                const { error } = await proposeDeleteItem(id)
-                if (error) toast(error, 'error')
-                else toast('Delete sent for approval')
-              }}
-              onProposeAdd={async (text) => {
-                const { error } = await proposeAddItem(category, text)
-                if (error) toast(error, 'error')
-                else toast('New task sent for approval')
-              }}
-              onAdminRename={async (id, text) => {
-                const { error } = await renameItem(id, text)
-                if (error) toast(error, 'error')
-                else toast('Task renamed')
-              }}
-              onAdminDelete={async (id) => {
-                const { error } = await deleteItem(id)
-                if (error) toast(error, 'error')
-                else toast('Task removed')
-              }}
-              onAdminAdd={async (text) => {
-                const { error } = await addItem(category, text)
-                if (error) toast(error, 'error')
-                else toast('Task added')
-              }}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+    <svg width="36" height="22" viewBox="0 0 60 34" fill="none" className="shrink-0">
+      {/* Arc segments: Poor (red), Average (orange), Good (yellow-green), Excellent (green) */}
+      <path d="M6 30 A24 24 0 0 1 15.1 10.1" stroke="#f87171" strokeWidth="5" strokeLinecap="round" fill="none" />
+      <path d="M15.1 10.1 A24 24 0 0 1 30 6" stroke="#fb923c" strokeWidth="5" strokeLinecap="round" fill="none" />
+      <path d="M30 6 A24 24 0 0 1 44.9 10.1" stroke="#a3e635" strokeWidth="5" strokeLinecap="round" fill="none" />
+      <path d="M44.9 10.1 A24 24 0 0 1 54 30" stroke="#34d399" strokeWidth="5" strokeLinecap="round" fill="none" />
+      {/* Needle */}
+      <g transform={`rotate(${angle}, 30, 30)`}>
+        <line x1="30" y1="30" x2="30" y2="10" stroke="white" strokeWidth="2" strokeLinecap="round" />
+      </g>
+      {/* Center dot */}
+      <circle cx="30" cy="30" r="3" fill="white" />
+    </svg>
   )
 }
 
-// ─── Pending approval queue (member-only) ────────────────────────────
-function PendingQueue({
-  pendingAdds,
-  pendingByItemId,
-}: {
-  pendingAdds: PendingTaskEdit[]
-  pendingByItemId: Map<string, PendingTaskEdit>
-}) {
-  const renameAndDelete = Array.from(pendingByItemId.values())
-  const total = pendingAdds.length + renameAndDelete.length
-
-  return (
-    <div className="bg-surface rounded-2xl border border-amber-500/30 p-5 shadow-sm">
-      <div className="flex items-center gap-2 mb-3">
-        <Clock size={16} className="text-amber-400" aria-hidden="true" />
-        <h2 className="font-semibold text-sm">Pending approval</h2>
-        <Badge variant="warning" size="sm">{total}</Badge>
-      </div>
-      <p className="text-xs text-text-muted mb-3">
-        Your edits are waiting for your manager or an admin to review.
-      </p>
-      <ul className="space-y-2 text-sm">
-        {pendingAdds.map(req => (
-          <li key={req.id} className="flex items-start gap-2">
-            <Plus size={14} className="text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
-            <div className="flex-1 min-w-0">
-              <span className="text-text">Add <strong>{req.proposed_text}</strong></span>
-              <span className="text-text-light"> to {req.proposed_category ?? 'the list'}</span>
-            </div>
-          </li>
-        ))}
-        {renameAndDelete.map(req => (
-          <li key={req.id} className="flex items-start gap-2">
-            {req.change_type === 'rename' ? (
-              <Pencil size={14} className="text-sky-400 shrink-0 mt-0.5" aria-hidden="true" />
-            ) : (
-              <Trash2 size={14} className="text-red-400 shrink-0 mt-0.5" aria-hidden="true" />
-            )}
-            <div className="flex-1 min-w-0">
-              {req.change_type === 'rename' ? (
-                <span className="text-text">
-                  Rename <strong className="line-through text-text-light">{req.previous_text}</strong>
-                  {' → '}
-                  <strong>{req.proposed_text}</strong>
-                </span>
-              ) : (
-                <span className="text-text">
-                  Delete <strong className="line-through text-text-light">{req.previous_text}</strong>
-                </span>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
+function PriorityBadge({ level }: { level: string }) {
+  const colors: Record<string, string> = { HIGH: 'bg-red-500/15 text-red-400', MED: 'bg-amber-500/15 text-amber-400', LOW: 'bg-emerald-500/15 text-emerald-400' }
+  return <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${colors[level] ?? colors.LOW}`}>{level}</span>
 }
 
-// ─── One category card with inline editing ──────────────────────────
-interface CategoryCardProps {
-  category: string
-  items: ChecklistItemRow[]
-  catIdx: number
-  isAdmin: boolean
-  isToday: boolean
-  toggleItem: (id: string) => void
-  pendingByItemId: Map<string, PendingTaskEdit>
-  onProposeRename: (id: string, text: string) => Promise<void>
-  onProposeDelete: (id: string) => Promise<void>
-  onProposeAdd: (text: string) => Promise<void>
-  onAdminRename: (id: string, text: string) => Promise<void>
-  onAdminDelete: (id: string) => Promise<void>
-  onAdminAdd: (text: string) => Promise<void>
-}
+const TIME_FILTERS = ['Total', 'Year', 'Month', 'Week', 'Day'] as const
 
-function CategoryCard({
-  category,
-  items,
-  catIdx,
-  isAdmin,
-  isToday,
-  toggleItem,
-  pendingByItemId,
-  onProposeRename,
-  onProposeDelete,
-  onProposeAdd,
-  onAdminRename,
-  onAdminDelete,
-  onAdminAdd,
-}: CategoryCardProps) {
-  const [collapsed, setCollapsed] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editingText, setEditingText] = useState('')
-  const [addingOpen, setAddingOpen] = useState(false)
-  const [addText, setAddText] = useState('')
-  const [deleteConfirm, setDeleteConfirm] = useState<{
-    open: boolean; itemId: string; itemText: string
-  }>({ open: false, itemId: '', itemText: '' })
+function RoleTaskList() {
+  const [activePos, setActivePos] = useState<Position>('Marketing')
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
+  const [submittedIds, setSubmittedIds] = useState<Set<string>>(new Set())
+  const [detailTask, setDetailTask] = useState<RoleTask | null>(null)
+  const [roleTimeFilter, setRoleTimeFilter] = useState('Week')
 
-  const done = items.filter(i => i.is_completed).length
-  const emoji = CATEGORY_META[category] ?? '📌'
+  const posColor = POSITION_COLORS[activePos]
+  const roleTasks = ROLE_TASKS[activePos]
+  const roleProjects = ROLE_PROJECTS[activePos]
 
-  const beginEdit = (item: ChecklistItemRow) => {
-    setEditingId(item.id)
-    setEditingText(item.item_text)
-  }
-  const cancelEdit = () => {
-    setEditingId(null)
-    setEditingText('')
-  }
-  const commitEdit = async () => {
-    const id = editingId
-    const text = editingText
-    if (!id) return
-    cancelEdit()
-    if (isAdmin) await onAdminRename(id, text)
-    else await onProposeRename(id, text)
+  const hasPending = pendingIds.size > 0
+
+  const togglePending = (id: string) => {
+    setPendingIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
-  const commitAdd = async () => {
-    const text = addText
-    if (!text.trim()) return
-    setAddText('')
-    setAddingOpen(false)
-    if (isAdmin) await onAdminAdd(text)
-    else await onProposeAdd(text)
+  const submitCompleted = () => {
+    setSubmittedIds(prev => {
+      const next = new Set(prev)
+      pendingIds.forEach(id => next.add(id))
+      return next
+    })
+    setPendingIds(new Set())
   }
 
-  const requestDelete = (item: ChecklistItemRow) => {
-    setDeleteConfirm({ open: true, itemId: item.id, itemText: item.item_text })
-  }
-  const confirmDelete = async () => {
-    const id = deleteConfirm.itemId
-    setDeleteConfirm({ open: false, itemId: '', itemText: '' })
-    if (isAdmin) await onAdminDelete(id)
-    else await onProposeDelete(id)
-  }
+  // Sort: incomplete first, submitted/done at bottom
+  const sorted = [...roleTasks].sort((a, b) => {
+    const aD = a.done || submittedIds.has(a.id)
+    const bD = b.done || submittedIds.has(b.id)
+    return aD === bD ? 0 : aD ? 1 : -1
+  })
 
-  // Only allow structural edits on the current day's list — backdating edits
-  // would require special handling and isn't a real workflow here.
-  const canEdit = isToday
+  const doneCount = roleTasks.filter(t => t.done || submittedIds.has(t.id)).length
+  const totalCount = roleTasks.length
+  const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0
 
   return (
-    <>
-      <div
-        className="bg-surface rounded-2xl border border-border shadow-sm overflow-hidden animate-slide-up"
-        style={{ animationDelay: `${catIdx * 60}ms` }}
-      >
-        <button
-          type="button"
-          onClick={() => setCollapsed(v => !v)}
-          className="w-full flex items-center gap-3 px-5 py-4 hover:bg-surface-alt/50 transition-colors focus-ring"
-          aria-expanded={!collapsed}
-          aria-controls={`daily-cat-${catIdx}`}
-        >
-          <span className="text-lg" aria-hidden="true">{emoji}</span>
-          <span className="font-semibold text-sm flex-1 text-left">{category}</span>
-          <span className="text-xs text-text-muted font-medium">{done}/{items.length}</span>
-          <ChevronLeft
-            size={16}
-            aria-hidden="true"
-            className={`text-text-light transition-transform duration-200 ${collapsed ? '' : '-rotate-90'}`}
-          />
-        </button>
-
-        {!collapsed && (
-          <div id={`daily-cat-${catIdx}`} className="border-t border-border divide-y divide-border/50">
-            {items.map(item => {
-              const pending = pendingByItemId.get(item.id)
-              const isPendingRename = pending?.change_type === 'rename'
-              const isPendingDelete = pending?.change_type === 'delete'
-              const isEditing = editingId === item.id
-
-              if (isEditing) {
-                return (
-                  <div key={item.id} className="flex items-center gap-2 px-5 py-3">
-                    <Input
-                      aria-label="Edit task"
-                      value={editingText}
-                      onChange={e => setEditingText(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') { e.preventDefault(); commitEdit() }
-                        if (e.key === 'Escape') { e.preventDefault(); cancelEdit() }
-                      }}
-                      wrapperClassName="flex-1"
-                      autoFocus
-                    />
-                    <Button variant="primary" size="sm" onClick={commitEdit}>Save</Button>
-                    <Button variant="secondary" size="sm" onClick={cancelEdit}>Cancel</Button>
-                  </div>
-                )
-              }
-
+    <div className="bg-surface rounded-2xl border border-border overflow-hidden">
+      {/* Top bar: title + time filter (same layout as Flywheel KPIs) */}
+      <div className="px-5 py-4 border-b border-border">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-text">Task List by Position</h2>
+          <div className="flex gap-1 bg-surface-alt/50 p-1 rounded-xl border border-border">
+            {TIME_FILTERS.map((tf) => (
+              <button
+                key={tf}
+                onClick={() => setRoleTimeFilter(tf)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
+                  roleTimeFilter === tf
+                    ? 'bg-gold text-black shadow-sm'
+                    : 'text-text-muted hover:text-text hover:bg-surface-hover'
+                }`}
+              >
+                {tf}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Position tabs + stats + submit */}
+        <div className="flex items-center justify-between">
+          <div className="flex gap-1.5 flex-wrap">
+            {POSITIONS.map((pos) => {
+              const active = activePos === pos
               return (
-                <div
-                  key={item.id}
-                  className={`flex items-center gap-3 px-5 py-3 transition-colors ${
-                    isPendingDelete ? 'opacity-60' : 'hover:bg-surface-alt/50'
+                <button
+                  key={pos}
+                  onClick={() => { setActivePos(pos); setPendingIds(new Set()); setSubmittedIds(new Set()); setDetailTask(null) }}
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                    active
+                      ? 'bg-gold/10 text-gold border-gold/30 shadow-sm'
+                      : 'bg-surface-alt text-text-muted border-border hover:text-text hover:border-border-light'
                   }`}
                 >
+                  {pos}
+                </button>
+              )
+            })}
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="text-xs text-text-muted">{doneCount}/{totalCount} complete · {pct}%</span>
+            <button
+              onClick={submitCompleted}
+              disabled={!hasPending}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                hasPending
+                  ? 'bg-gold text-black hover:bg-gold-muted shadow-md shadow-gold/20 animate-pulse-gold'
+                  : 'bg-surface-alt text-text-light cursor-not-allowed border border-border'
+              }`}
+            >
+              <Send size={12} />
+              Submit {hasPending ? `(${pendingIds.size})` : ''}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Tasks + Projects grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border/30">
+        {/* Tasks (2/3) */}
+        <div className="lg:col-span-2 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">Tasks</p>
+            <div className="flex items-center gap-2">
+              <div className="w-24 h-1.5 bg-surface-alt rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: posColor.color }} />
+              </div>
+              <span className="text-[10px] font-bold" style={{ color: posColor.color }}>{pct}%</span>
+            </div>
+          </div>
+
+          {/* Column headers */}
+          <div className="flex items-center gap-3 px-3 pb-2 border-b border-border/30 mb-1">
+            <div className="w-5 shrink-0" />
+            <span className="flex-1 text-[10px] font-semibold text-text-muted uppercase tracking-wide">Task</span>
+            <span className="w-16 text-[10px] font-semibold text-text-muted uppercase tracking-wide text-center">Assigned</span>
+            <span className="w-20 text-[10px] font-semibold text-text-muted uppercase tracking-wide text-center">Due</span>
+            <span className="w-12 text-[10px] font-semibold text-text-muted uppercase tracking-wide text-center">Priority</span>
+          </div>
+
+          <div className="space-y-0.5">
+            {sorted.map((task) => {
+              const isSubmitted = submittedIds.has(task.id)
+              const isDone = task.done || isSubmitted
+              const isPending = pendingIds.has(task.id)
+              const isChecked = isDone || isPending
+              return (
+                <div
+                  key={task.id}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
+                    isDone ? 'opacity-40' : isPending ? 'bg-gold/[0.04]' : 'hover:bg-white/[0.02]'
+                  }`}
+                >
+                  {/* Checkbox — click to toggle pending */}
                   <button
-                    type="button"
-                    onClick={() => toggleItem(item.id)}
-                    aria-pressed={item.is_completed}
-                    aria-label={item.is_completed ? `Uncheck ${item.item_text}` : `Complete ${item.item_text}`}
-                    className="shrink-0 focus-ring rounded-md"
+                    onClick={(e) => { e.stopPropagation(); if (!isDone) togglePending(task.id) }}
+                    disabled={isDone}
+                    className="shrink-0"
                   >
                     <div
-                      aria-hidden="true"
                       className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
-                        item.is_completed
-                          ? 'bg-gold border-gold'
-                          : 'border-text-light hover:border-gold'
+                        isDone
+                          ? 'bg-emerald-500/30 border-emerald-500/50'
+                          : isPending
+                            ? 'border-gold bg-gold/20'
+                            : 'border-border-light hover:border-gold/50'
                       }`}
                     >
-                      {item.is_completed && <Check size={14} className="text-black" />}
+                      {isChecked && <Check size={12} className={isDone ? 'text-emerald-400' : 'text-gold'} />}
                     </div>
                   </button>
 
+                  {/* Task name — click to open detail */}
                   <button
-                    type="button"
-                    onClick={() => toggleItem(item.id)}
-                    className={`flex-1 text-left text-sm transition-all focus-ring rounded ${
-                      item.is_completed ? 'text-text-light line-through' : 'text-text'
+                    onClick={() => setDetailTask(task)}
+                    className={`flex-1 text-left text-sm font-medium truncate transition-colors ${
+                      isDone ? 'line-through text-text-light' : 'text-text hover:text-gold'
                     }`}
                   >
-                    {item.item_text}
+                    {task.title}
                   </button>
 
-                  {isPendingRename && (
-                    <Badge variant="warning" size="sm" title={`Pending rename → "${pending?.proposed_text}"`}>
-                      rename pending
-                    </Badge>
-                  )}
-                  {isPendingDelete && (
-                    <Badge variant="danger" size="sm">delete pending</Badge>
-                  )}
+                  {/* Assigned */}
+                  <span className="w-16 text-center text-[10px] text-text-muted">{task.assigned}</span>
 
-                  {canEdit && !pending && (
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => beginEdit(item)}
-                        aria-label={`Edit ${item.item_text}`}
-                        className="p-1.5 rounded text-text-light hover:text-gold hover:bg-gold/10 focus-ring"
-                      >
-                        <Pencil size={13} aria-hidden="true" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => requestDelete(item)}
-                        aria-label={`Delete ${item.item_text}`}
-                        className="p-1.5 rounded text-text-light hover:text-red-400 hover:bg-red-500/10 focus-ring"
-                      >
-                        <Trash2 size={13} aria-hidden="true" />
-                      </button>
-                    </div>
-                  )}
+                  {/* Due */}
+                  <span className="w-20 text-center text-[10px] text-text-muted flex items-center justify-center gap-1">
+                    <Clock size={9} />{task.due.split(',')[0]}
+                  </span>
+
+                  {/* Priority */}
+                  <span className="w-12 flex justify-center">
+                    <PriorityBadge level={task.priority} />
+                  </span>
                 </div>
               )
             })}
+          </div>
+        </div>
 
-            {/* Add-task row — only on today's list */}
-            {canEdit && (
-              <div className="px-5 py-3 bg-surface-alt/30">
-                {addingOpen ? (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      aria-label={`New task in ${category}`}
-                      placeholder="New task…"
-                      value={addText}
-                      onChange={e => setAddText(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') { e.preventDefault(); commitAdd() }
-                        if (e.key === 'Escape') {
-                          e.preventDefault()
-                          setAddingOpen(false)
-                          setAddText('')
-                        }
-                      }}
-                      wrapperClassName="flex-1"
-                      autoFocus
-                    />
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={commitAdd}
-                      iconLeft={<Plus size={13} aria-hidden="true" />}
-                    >
-                      {isAdmin ? 'Add' : 'Propose'}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => { setAddingOpen(false); setAddText('') }}
-                      aria-label="Cancel add"
-                    >
-                      <X size={13} aria-hidden="true" />
-                    </Button>
+        {/* Right panel: Projects or Task Detail */}
+        <div className="p-5">
+          {detailTask ? (
+            /* Task Detail View */
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">Task Detail</p>
+                <button onClick={() => setDetailTask(null)} className="text-[10px] text-gold font-medium hover:underline">Back to Projects</button>
+              </div>
+              <div className="bg-surface-alt rounded-xl border border-border p-4 space-y-3">
+                <h3 className="text-sm font-bold text-text">{detailTask.title}</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-text-muted">Position</span>
+                    <span className="text-[11px] font-semibold" style={{ color: posColor.color }}>{activePos}</span>
                   </div>
-                ) : (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-text-muted">Assigned</span>
+                    <span className="text-[11px] text-text">{detailTask.assigned}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-text-muted">Due</span>
+                    <span className="text-[11px] text-text">{detailTask.due}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-text-muted">Priority</span>
+                    <PriorityBadge level={detailTask.priority} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-text-muted">Status</span>
+                    <span className={`text-[11px] font-semibold ${
+                      detailTask.done || submittedIds.has(detailTask.id) ? 'text-emerald-400' : pendingIds.has(detailTask.id) ? 'text-gold' : 'text-text-muted'
+                    }`}>
+                      {detailTask.done || submittedIds.has(detailTask.id) ? 'Completed' : pendingIds.has(detailTask.id) ? 'Pending Submit' : 'Open'}
+                    </span>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-border/50">
+                  <p className="text-[10px] text-text-muted uppercase tracking-wide mb-1.5">Notes</p>
+                  <p className="text-xs text-text-light italic">No notes yet. Notes will appear here when connected to the database.</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Projects View */
+            <>
+              <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-3">Projects</p>
+              <div className="space-y-3">
+                {roleProjects.map((proj) => (
+                  <div key={proj.id} className="bg-surface-alt rounded-xl border border-border p-3.5">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-sm font-semibold text-text">{proj.name}</p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span
+                        className="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
+                        style={{ color: proj.statusColor, backgroundColor: proj.statusBg, borderColor: proj.statusColor + '40' }}
+                      >
+                        {proj.status}
+                      </span>
+                      <span className="text-[10px] text-text-muted">Due {proj.due}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Due Today / Upcoming tasks for signed-in user (Marketing mock) ── */
+const MY_DUE_TODAY = [
+  { id: 'my1', title: 'Draft Q2 social media calendar', due: '5:00 PM', priority: 'HIGH' as const, done: false },
+  { id: 'my2', title: 'Schedule newsletter send', due: '3:00 PM', priority: 'HIGH' as const, done: false },
+  { id: 'my3', title: 'Respond to influencer DMs', due: '12:00 PM', priority: 'MED' as const, done: true },
+  { id: 'my4', title: 'Post session highlight reel', due: '6:00 PM', priority: 'MED' as const, done: false },
+]
+
+const MY_UPCOMING = [
+  { id: 'up1', title: 'Review Instagram analytics report', due: 'Tomorrow, 10:00 AM', priority: 'MED' as const, done: false },
+  { id: 'up2', title: 'Create ad copy for podcast promo', due: 'Wed, Apr 15', priority: 'MED' as const, done: false },
+  { id: 'up3', title: 'Update brand guidelines doc', due: 'Fri, Apr 17', priority: 'LOW' as const, done: false },
+  { id: 'up4', title: 'Plan May content calendar', due: 'Mon, Apr 21', priority: 'LOW' as const, done: false },
+  { id: 'up5', title: 'Q2 campaign launch prep', due: 'Thu, May 1', priority: 'HIGH' as const, done: false },
+]
+
+function MyTasksBox() {
+  const [tab, setTab] = useState<'today' | 'upcoming'>('today')
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
+  const [submittedIds, setSubmittedIds] = useState<Set<string>>(new Set())
+  const [showCreateTask, setShowCreateTask] = useState(false)
+
+  const items = tab === 'today' ? MY_DUE_TODAY : MY_UPCOMING
+  const hasPending = checkedIds.size > 0
+
+  const toggleCheck = (id: string) => {
+    setCheckedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+  const submitChecked = () => {
+    setSubmittedIds(prev => { const n = new Set(prev); checkedIds.forEach(id => n.add(id)); return n })
+    setCheckedIds(new Set())
+  }
+
+  const sorted = [...items].sort((a, b) => {
+    const aD = a.done || submittedIds.has(a.id); const bD = b.done || submittedIds.has(b.id)
+    return aD === bD ? 0 : aD ? 1 : -1
+  })
+
+  return (
+    <div className="bg-surface rounded-2xl border border-border p-5">
+      {showCreateTask && <CreateTaskModal onClose={() => setShowCreateTask(false)} />}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <h2 className="text-sm font-semibold text-text">My Tasks</h2>
+          <div className="flex gap-1 bg-surface-alt/50 p-0.5 rounded-lg border border-border">
+            <button onClick={() => setTab('today')} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${tab === 'today' ? 'bg-gold text-black shadow-sm' : 'text-text-muted hover:text-text'}`}>Due Today</button>
+            <button onClick={() => setTab('upcoming')} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${tab === 'upcoming' ? 'bg-gold text-black shadow-sm' : 'text-text-muted hover:text-text'}`}>Upcoming</button>
+          </div>
+          <button onClick={() => setShowCreateTask(true)} className="flex items-center gap-1 text-xs text-gold font-medium hover:underline"><Plus size={12} />Create Task</button>
+        </div>
+        <button
+          onClick={submitChecked}
+          disabled={!hasPending}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+            hasPending ? 'bg-gold text-black hover:bg-gold-muted shadow-md shadow-gold/20 animate-pulse-gold' : 'bg-surface-alt text-text-light cursor-not-allowed border border-border'
+          }`}
+        >
+          <Send size={12} />
+          Submit {hasPending ? `(${checkedIds.size})` : ''}
+        </button>
+      </div>
+      <div className="space-y-1">
+        {sorted.map((task) => {
+          const isDone = task.done || submittedIds.has(task.id)
+          const isPending = checkedIds.has(task.id)
+          const isChecked = isDone || isPending
+          return (
+            <div key={task.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${isDone ? 'opacity-40' : isPending ? 'bg-gold/[0.04]' : 'hover:bg-white/[0.02]'}`}>
+              <button onClick={() => !isDone && toggleCheck(task.id)} disabled={isDone} className="shrink-0">
+                <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${isDone ? 'bg-emerald-500/30 border-emerald-500/50' : isPending ? 'border-gold bg-gold/20' : 'border-border-light hover:border-gold/50'}`}>
+                  {isChecked && <Check size={12} className={isDone ? 'text-emerald-400' : 'text-gold'} />}
+                </div>
+              </button>
+              <span className={`flex-1 text-sm ${isDone ? 'line-through text-text-light' : 'text-text'}`}>{task.title}</span>
+              <span className="text-[10px] text-text-muted flex items-center gap-1 shrink-0"><Clock size={9} />{task.due}</span>
+              <PriorityBadge level={task.priority} />
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/* ── Team Projects ── */
+const TEAM_PROJECTS = [
+  { id: 'tp1', name: 'Album Production — Stanford Music', lead: 'Jordan Lee', tags: [{ label: 'Recording', color: '#38bdf8', bg: 'rgba(14, 165, 233, 0.15)' }, { label: 'Active', color: '#34d399', bg: 'rgba(16, 185, 129, 0.15)' }], due: 'May 15', progress: 65 },
+  { id: 'tp2', name: 'Podcast Series Edit — Aprt Media', lead: 'Sam Rivera', tags: [{ label: 'Editing', color: '#a78bfa', bg: 'rgba(139, 92, 246, 0.15)' }, { label: 'Paused', color: '#fb7185', bg: 'rgba(244, 63, 94, 0.15)' }], due: 'Jun 1', progress: 30 },
+  { id: 'tp3', name: 'Q2 Marketing Campaign', lead: 'Alex Kim', tags: [{ label: 'Marketing', color: '#fbbf24', bg: 'rgba(245, 158, 11, 0.15)' }, { label: 'Active', color: '#34d399', bg: 'rgba(16, 185, 129, 0.15)' }], due: 'May 1', progress: 80 },
+  { id: 'tp4', name: 'Studio B Renovation', lead: 'Taylor Morgan', tags: [{ label: 'Planning', color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.12)' }], due: 'Jun 30', progress: 15 },
+]
+
+/* ── Maintenance / optional daily tasks ── */
+const MAINTENANCE_TASKS = [
+  { id: 'mt1', title: 'Organize desktop and downloads folder', done: false },
+  { id: 'mt2', title: 'Clear and sort email inbox', done: false },
+  { id: 'mt3', title: 'Review and update task notes', done: false },
+  { id: 'mt4', title: 'Check team comms for unread messages', done: false },
+  { id: 'mt5', title: 'Back up current session files', done: false },
+  { id: 'mt6', title: 'Tidy shared drive folders', done: false },
+  { id: 'mt7', title: 'Review platform notifications', done: false },
+  { id: 'mt8', title: 'Update personal availability calendar', done: false },
+]
+
+function MaintenanceBox() {
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
+  const [submittedIds, setSubmittedIds] = useState<Set<string>>(new Set())
+  const hasPending = checkedIds.size > 0
+
+  const toggleCheck = (id: string) => {
+    setCheckedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+  const submitChecked = () => {
+    setSubmittedIds(prev => { const n = new Set(prev); checkedIds.forEach(id => n.add(id)); return n })
+    setCheckedIds(new Set())
+  }
+
+  const sorted = [...MAINTENANCE_TASKS].sort((a, b) => {
+    const aD = a.done || submittedIds.has(a.id); const bD = b.done || submittedIds.has(b.id)
+    return aD === bD ? 0 : aD ? 1 : -1
+  })
+
+  const doneCount = MAINTENANCE_TASKS.filter(t => t.done || submittedIds.has(t.id)).length
+  const totalCount = MAINTENANCE_TASKS.length
+
+  return (
+    <div className="bg-surface rounded-2xl border border-border p-5">
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="text-sm font-semibold text-text">Maintenance & Organization</h2>
+        <button
+          onClick={submitChecked}
+          disabled={!hasPending}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+            hasPending ? 'bg-gold text-black hover:bg-gold-muted shadow-md shadow-gold/20 animate-pulse-gold' : 'bg-surface-alt text-text-light cursor-not-allowed border border-border'
+          }`}
+        >
+          <Send size={12} />
+          Submit {hasPending ? `(${checkedIds.size})` : ''}
+        </button>
+      </div>
+      <p className="text-[11px] text-text-muted mb-4">Optional daily tasks for downtime or in-between time. {doneCount}/{totalCount} done.</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+        {sorted.map((task) => {
+          const isDone = task.done || submittedIds.has(task.id)
+          const isPending = checkedIds.has(task.id)
+          const isChecked = isDone || isPending
+          return (
+            <button
+              key={task.id}
+              onClick={() => !isDone && toggleCheck(task.id)}
+              disabled={isDone}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-all ${isDone ? 'opacity-40' : isPending ? 'bg-gold/[0.04]' : 'hover:bg-white/[0.02]'}`}
+            >
+              <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${isDone ? 'bg-emerald-500/30 border-emerald-500/50' : isPending ? 'border-gold bg-gold/20' : 'border-border-light hover:border-gold/50'}`}>
+                {isChecked && <Check size={10} className={isDone ? 'text-emerald-400' : 'text-gold'} />}
+              </div>
+              <span className={`text-sm ${isDone ? 'line-through text-text-light' : 'text-text-muted'}`}>{task.title}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function StatusTag({ label, color, bg }: { label: string; color: string; bg: string }) {
+  return (
+    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border" style={{ color, backgroundColor: bg, borderColor: color + '40' }}>
+      {label}
+    </span>
+  )
+}
+
+export default function DailyChecklist() {
+  useDocumentTitle('Tasks - Checkmark Audio')
+  const { tasks, pendingIds, togglePending, submitPending, hasPending } = useTasks()
+  const [selectedStage, setSelectedStage] = useState('Deliver')
+  const [timeFilter, setTimeFilter] = useState<'total' | 'year' | 'month' | 'week' | 'day'>('week')
+
+  // Compute per-stage stats
+  const stageStats = useMemo(() => {
+    const stats: Record<string, { total: number; done: number; pct: number }> = {}
+    for (const stage of STAGES) {
+      const stageTasks = tasks.filter(t => t.stage === stage.name)
+      const done = stageTasks.filter(t => t.completed).length
+      const total = stageTasks.length
+      stats[stage.name] = { total, done, pct: total > 0 ? Math.round((done / total) * 100) : 0 }
+    }
+    return stats
+  }, [tasks])
+
+  const totalTasks = tasks.length
+  const totalDone = tasks.filter(t => t.completed).length
+
+  // Find best and weakest stages
+  const sortedStages = [...STAGES].sort((a, b) => (stageStats[b.name]?.pct ?? 0) - (stageStats[a.name]?.pct ?? 0))
+  const bestStage = sortedStages[0]?.name ?? 'Deliver'
+  const weakStage = sortedStages[sortedStages.length - 1]?.name ?? 'Attract'
+
+  // Health label + color (4-tier: Low=red, Average=orange, Good=yellow-green, Excellent=green)
+  const overallPct = totalTasks > 0 ? Math.round((totalDone / totalTasks) * 100) : 0
+  const healthLevel = overallPct >= 85 ? 'Excellent' : overallPct >= 65 ? 'Good' : overallPct >= 40 ? 'Average' : 'Low'
+  const HEALTH_STYLES: Record<string, { color: string; bg: string; border: string }> = {
+    Excellent: { color: '#34d399', bg: 'rgba(16, 185, 129, 0.15)', border: 'rgba(16, 185, 129, 0.4)' },
+    Good:      { color: '#a3e635', bg: 'rgba(163, 230, 53, 0.12)', border: 'rgba(163, 230, 53, 0.35)' },
+    Average:   { color: '#fb923c', bg: 'rgba(251, 146, 60, 0.12)', border: 'rgba(251, 146, 60, 0.35)' },
+    Low:       { color: '#f87171', bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.4)' },
+  }
+  const healthStyle = HEALTH_STYLES[healthLevel]
+
+  // Stage color lookup helper
+  const stageColor = (name: string) => STAGES.find(s => s.name === name)?.color ?? '#C9A84C'
+
+  // Selected stage data
+  const stage = STAGES.find(s => s.name === selectedStage) ?? STAGES[0]
+  const stageTasks = tasks.filter(t => t.stage === selectedStage)
+  const sortedStageTasks = [...stageTasks].sort((a, b) => a.completed === b.completed ? 0 : a.completed ? 1 : -1)
+  const stats = stageStats[selectedStage] ?? { total: 0, done: 0, pct: 0 }
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-5 animate-fade-in">
+      {/* ── My Tasks (Due Today / Upcoming) ── */}
+      <MyTasksBox />
+
+      {/* ── Flywheel Task Tracker (merged header + KPIs) ── */}
+      <div className="bg-surface rounded-2xl border border-border p-6">
+        {/* Header row: title + stats */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-5">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-gold mb-1">Checkmark Audio KPI System</p>
+            <h1 className="text-2xl lg:text-3xl font-bold text-text">Flywheel Task Tracker</h1>
+          </div>
+          <div className="grid grid-cols-2 gap-2 shrink-0">
+            <div className="bg-surface-alt rounded-xl border border-border px-3.5 py-2.5 min-w-[130px]">
+              <p className="text-[10px] text-text-muted uppercase tracking-wide">Tasks Completed</p>
+              <p className="text-sm font-bold text-text mt-0.5">{totalDone} / {totalTasks}</p>
+            </div>
+            <div className="bg-surface-alt rounded-xl border border-border px-3.5 py-2.5 min-w-[130px]">
+              <p className="text-[10px] text-text-muted uppercase tracking-wide mb-1.5">KPI Health</p>
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide border" style={{ color: healthStyle.color, backgroundColor: healthStyle.bg, borderColor: healthStyle.border }}>{healthLevel}</span>
+                <span className="text-xs font-semibold" style={{ color: healthStyle.color }}>{overallPct}%</span>
+                <HealthGauge pct={overallPct} />
+              </div>
+            </div>
+            <div className="bg-surface-alt rounded-xl border border-border px-3.5 py-2.5 min-w-[130px]">
+              <p className="text-[10px] text-text-muted uppercase tracking-wide">Best Stage</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: stageColor(bestStage) }}>{bestStage}</p>
+            </div>
+            <div className="bg-surface-alt rounded-xl border border-border px-3.5 py-2.5 min-w-[130px]">
+              <p className="text-[10px] text-text-muted uppercase tracking-wide">Needs Attention</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: stageColor(weakStage) }}>{weakStage}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-border/50 pt-5">
+          {/* Time filter row */}
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-gold">Flywheel KPIs</p>
+            <div className="flex gap-1 bg-surface-alt/50 p-1 rounded-xl border border-border">
+              {([
+                { key: 'total' as const, label: 'Total' },
+                { key: 'year' as const, label: 'Year' },
+                { key: 'month' as const, label: 'Month' },
+                { key: 'week' as const, label: 'Week' },
+                { key: 'day' as const, label: 'Day' },
+              ]).map((tf) => (
+                <button
+                  key={tf.key}
+                  onClick={() => setTimeFilter(tf.key)}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
+                    timeFilter === tf.key
+                      ? 'bg-gold text-black shadow-sm'
+                      : 'text-text-muted hover:text-text hover:bg-surface-hover'
+                  }`}
+                >
+                  {tf.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+        <div className="space-y-4">
+            {/* Stage chips grid */}
+            <div className="grid grid-cols-3 lg:grid-cols-5 gap-2.5">
+              {STAGES.map((s) => {
+                const st = stageStats[s.name] ?? { pct: 0 }
+                const active = selectedStage === s.name
+                return (
                   <button
-                    type="button"
-                    onClick={() => setAddingOpen(true)}
-                    className="w-full flex items-center gap-2 text-sm text-text-muted hover:text-gold transition-colors focus-ring rounded-md px-2 py-1"
+                    key={s.name}
+                    onClick={() => setSelectedStage(s.name)}
+                    className={`relative rounded-xl border-2 p-3.5 text-left transition-all ${
+                      active ? 'shadow-lg scale-[1.02]' : 'hover:scale-[1.01]'
+                    }`}
+                    style={{
+                      backgroundColor: active ? s.bg : 'rgba(20,20,22,0.8)',
+                      borderColor: active ? s.color : 'rgba(42,42,42,0.8)',
+                    }}
                   >
-                    <Plus size={14} aria-hidden="true" />
-                    {isAdmin ? 'Add task' : 'Propose a new task'}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-base font-bold" style={{ color: s.color }}>{s.name}</p>
+                        <p className="text-[10px] text-text-muted mt-0.5">{s.subtitle}</p>
+                      </div>
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold border-2"
+                        style={{
+                          borderColor: s.color + '60',
+                          backgroundColor: s.color + '15',
+                          color: s.color,
+                        }}
+                      >
+                        {st.pct}%
+                      </div>
+                    </div>
                   </button>
+                )
+              })}
+            </div>
+
+            {/* Selected stage detail panel */}
+            <div className="bg-surface-alt rounded-2xl border border-border p-5">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gold">Selected Stage</p>
+                <span
+                  className="text-[10px] font-semibold px-2.5 py-1 rounded-full border"
+                  style={{ color: stage.color, borderColor: stage.color, backgroundColor: stage.bg }}
+                >
+                  Live KPI Component
+                </span>
+              </div>
+              <h2 className="text-2xl font-bold text-text">{stage.name}</h2>
+              <p className="text-sm text-text-muted mt-0.5">KPI: {stage.subtitle}</p>
+              <p className="text-sm text-text-muted">Target: {stage.target}</p>
+
+              {/* Progress bar */}
+              <div className="mt-4 mb-5">
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-xs text-text-muted">Progress toward target</p>
+                  <p className="text-sm font-bold text-text">{stats.pct}%</p>
+                </div>
+                <div className="h-2.5 bg-surface rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700 ease-out"
+                    style={{ width: `${stats.pct}%`, backgroundColor: stage.color }}
+                  />
+                </div>
+              </div>
+
+              {/* Task list */}
+              <div className="space-y-2">
+                {sortedStageTasks.map((task) => {
+                  const isPending = pendingIds.has(task.id)
+                  const isChecked = task.completed || isPending
+                  return (
+                    <button
+                      key={task.id}
+                      onClick={() => !task.completed && togglePending(task.id)}
+                      disabled={task.completed}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all ${
+                        task.completed
+                          ? 'border-gold/15 bg-gold/[0.04] opacity-50'
+                          : isPending
+                            ? 'border-gold/30 bg-gold/[0.06]'
+                            : 'border-border bg-surface hover:border-border-light'
+                      }`}
+                    >
+                      <div
+                        className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
+                          task.completed
+                            ? 'bg-gold border-gold'
+                            : isPending
+                              ? 'bg-gold/20 border-gold'
+                              : 'border-border-light'
+                        }`}
+                      >
+                        {isChecked && <Check size={13} className={task.completed ? 'text-black' : 'text-gold'} />}
+                      </div>
+                      <span className={`flex-1 text-sm ${task.completed ? 'line-through text-text-light' : 'text-text'}`}>
+                        {task.title}
+                      </span>
+                      <span className="text-[11px] text-text-muted shrink-0">Tap to update</span>
+                    </button>
+                  )
+                })}
+                {stageTasks.length === 0 && (
+                  <p className="text-sm text-text-muted text-center py-4">No tasks in this stage yet.</p>
                 )}
               </div>
-            )}
-          </div>
-        )}
+
+              {/* Submit button */}
+              {hasPending && (
+                <button
+                  onClick={submitPending}
+                  className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gold text-black font-semibold text-sm hover:bg-gold-muted transition-all shadow-lg shadow-gold/20 animate-pulse-gold"
+                >
+                  <Send size={14} />
+                  Submit {pendingIds.size} completed task{pendingIds.size > 1 ? 's' : ''}
+                </button>
+              )}
+            </div>
+
+        </div>
+        </div>
       </div>
 
-      <ConfirmModal
-        open={deleteConfirm.open}
-        title={isAdmin ? 'Delete task' : 'Propose task deletion'}
-        message={
-          isAdmin
-            ? `Permanently remove "${deleteConfirm.itemText}" from today's list?`
-            : `Send a request to delete "${deleteConfirm.itemText}"? Your manager will review before it's removed.`
-        }
-        confirmLabel={isAdmin ? 'Delete' : 'Send request'}
-        variant="danger"
-        onConfirm={confirmDelete}
-        onCancel={() => setDeleteConfirm({ open: false, itemId: '', itemText: '' })}
-      />
-    </>
+      {/* ── Task List by Position ── */}
+      <RoleTaskList />
+
+      {/* ── Team Projects ── */}
+      <div className="bg-surface rounded-2xl border border-border overflow-hidden">
+        <div className="px-5 py-4 border-b border-border">
+          <h2 className="text-sm font-semibold text-text">Team Projects</h2>
+          <p className="text-[11px] text-text-muted mt-0.5">Active company-wide projects across all departments.</p>
+        </div>
+        <div className="divide-y divide-border/30">
+          {TEAM_PROJECTS.map((proj) => (
+            <div key={proj.id} className="px-5 py-4 flex items-center gap-4">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-text">{proj.name}</p>
+                <p className="text-[11px] text-text-muted mt-0.5">Lead: {proj.lead}</p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="flex gap-1.5">
+                  {proj.tags.map((tag) => <StatusTag key={tag.label} {...tag} />)}
+                </div>
+                <div className="flex items-center gap-2 w-24">
+                  <div className="flex-1 h-1.5 bg-surface-alt rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${proj.progress}%`, backgroundColor: proj.progress >= 70 ? '#34d399' : proj.progress >= 40 ? '#fbbf24' : '#fb923c' }} />
+                  </div>
+                  <span className="text-[10px] text-text-muted font-semibold">{proj.progress}%</span>
+                </div>
+                <span className="text-[10px] text-text-muted">Due {proj.due}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Maintenance & Organization ── */}
+      <MaintenanceBox />
+    </div>
   )
 }

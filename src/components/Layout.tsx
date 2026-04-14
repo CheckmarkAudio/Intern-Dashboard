@@ -5,12 +5,13 @@ import { useFocusTrap } from '../hooks/useFocusTrap'
 import { useRouteAnnounce } from '../hooks/useRouteAnnounce'
 import ErrorBoundary from './ErrorBoundary'
 import ForcePasswordChangeModal from './auth/ForcePasswordChangeModal'
+import TeamHubIcon from './icons/TeamHubIcon'
+import checkmarkLogo from '../assets/checkmark-audio-logo.png'
 import type { LucideProps } from 'lucide-react'
 import {
-  LayoutDashboard, Users, Calendar, CalendarDays, Settings,
+  LayoutDashboard, Users, Calendar, Settings,
   LogOut, Menu, X, ChevronDown, ClipboardList, CheckSquare,
-  FolderKanban, Mic, GitBranch, GraduationCap, BarChart3, Pencil,
-  Target, Star, UsersRound, FileText,
+  BarChart3, Briefcase, Lightbulb,
 } from 'lucide-react'
 
 type NavLinkDef = {
@@ -45,28 +46,21 @@ function NavItem({ link, onNavigate }: { link: NavLinkDef; onNavigate: () => voi
   )
 }
 
-const memberLinks = [
-  { to: '/', icon: LayoutDashboard, label: 'Today' },
-  { to: '/daily', icon: ClipboardList, label: 'Daily Tasks' },
-  { to: '/notes', icon: FileText, label: 'Daily Notes' },
-  { to: '/schedule', icon: Calendar, label: 'Schedule' },
-  { to: '/calendar', icon: CalendarDays, label: 'Calendar' },
-  { to: '/kpis', icon: Target, label: 'My KPIs' },
-  { to: '/projects', icon: FolderKanban, label: 'Projects' },
-  { to: '/sessions', icon: Mic, label: 'Sessions' },
-  { to: '/content', icon: Pencil, label: 'Content' },
-  { to: '/pipeline', icon: GitBranch, label: 'Pipeline' },
-  { to: '/education', icon: GraduationCap, label: 'Education' },
-  { to: '/weekly', icon: CheckSquare, label: 'Weekly Tasks' },
-  { to: '/reviews', icon: Star, label: 'Performance Reviews' },
+/* ── Menu-Sidebar v5.2 — Main menu ── */
+const mainLinks: NavLinkDef[] = [
+  { to: '/', icon: LayoutDashboard, label: 'Overview' },
+  { to: '/daily', icon: CheckSquare, label: 'Tasks' },
+  { to: '/calendar', icon: Calendar, label: 'Calendar' },
+  { to: '/sessions', icon: Briefcase, label: 'Booking Agent' },
+  { to: '/content', icon: Lightbulb, label: 'Idea Board' },
 ]
 
-const adminLinks = [
-  { to: '/admin', icon: UsersRound, label: 'Team Hub' },
-  { to: '/admin/my-team', icon: UsersRound, label: 'My Team' },
-  { to: '/admin/team', icon: Users, label: 'Team Manager' },
-  { to: '/admin/templates', icon: ClipboardList, label: 'Templates' },
-  { to: '/admin/health', icon: BarChart3, label: 'Business Health' },
+/* ── Menu-Sidebar v5.2 — Admin menu ── */
+const adminLinks: NavLinkDef[] = [
+  { to: '/admin', icon: TeamHubIcon as ComponentType<LucideProps>, label: 'Team Hub' },
+  { to: '/admin/templates', icon: ClipboardList, label: 'Assign Tasks' },
+  { to: '/admin/my-team', icon: Users, label: 'Members' },
+  { to: '/admin/health', icon: BarChart3, label: 'Metrics' },
   { to: '/admin/settings', icon: Settings, label: 'Settings' },
 ]
 
@@ -96,23 +90,12 @@ export default function Layout() {
 
   const closeDrawer = () => setSidebarOpen(false)
 
+  /* ── Sidebar (navigation only — no logo/profile per v5.2) ── */
   const sidebar = (
     <div className="flex flex-col h-full">
-      <div className="p-5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center text-gold font-bold text-sm">
-            CA
-          </div>
-          <div>
-            <h1 className="font-bold text-sm tracking-tight text-text">Checkmark Audio</h1>
-            <p className="text-[11px] text-text-light font-medium">Command Center</p>
-          </div>
-        </div>
-      </div>
-
-      <nav className="flex-1 px-3 pb-3 space-y-0.5 overflow-y-auto" aria-label="Main navigation">
+      <nav className="flex-1 px-3 pt-4 pb-3 space-y-0.5 overflow-y-auto" aria-label="Main navigation">
         <p className="px-3 pt-2 pb-2 text-label">Menu</p>
-        {memberLinks.map(link => (
+        {mainLinks.map(link => (
           <NavItem key={link.to} link={link} onNavigate={closeDrawer} />
         ))}
 
@@ -144,30 +127,54 @@ export default function Layout() {
           </>
         )}
       </nav>
+    </div>
+  )
 
-      {/* Account card — split into info area + explicit sign-out button so
-          clicking the avatar/name to check who you're signed in as doesn't
-          log you out. The email is always shown so the active account is
-          unambiguous. */}
-      <div className="mx-3 mb-3 rounded-xl bg-surface-alt border border-border overflow-hidden">
-        <div className="flex items-center gap-3 p-3">
+  return (
+    <div className="flex flex-col h-screen bg-bg">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
+
+      {/* ── Header (full-width, flat, sticky — Menu-Sidebar v5.2) ── */}
+      <header className="h-14 border-b border-border bg-surface flex items-center px-4 lg:px-6 shrink-0 z-40">
+        {/* Mobile hamburger */}
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="p-2 rounded-xl hover:bg-surface-hover transition-colors text-text-muted lg:hidden mr-2"
+          aria-label="Open navigation menu"
+        >
+          <Menu size={20} aria-hidden="true" />
+        </button>
+
+        {/* Left: Logo + title */}
+        <div className="flex items-center gap-3">
+          <img
+            src={checkmarkLogo}
+            alt="Checkmark Audio logo"
+            className="w-8 h-8 object-contain"
+          />
+          <div className="leading-tight">
+            <h1 className="font-bold text-sm tracking-tight text-text">Checkmark Audio</h1>
+            <p className="text-[11px] text-gold font-medium">dashboard</p>
+          </div>
+        </div>
+
+        {/* Right: Profile + sign-out */}
+        <div className="ml-auto flex items-center gap-3">
+          <div className="text-right hidden sm:block">
+            <p className="text-sm font-semibold text-text truncate max-w-[160px]">
+              {profile?.display_name ?? 'User'}
+            </p>
+            <p className="text-[11px] text-text-muted truncate max-w-[200px]">
+              {profile?.email ?? ''}
+            </p>
+            <p className="text-[10px] text-text-light">Profile</p>
+          </div>
           <div
             className="w-9 h-9 rounded-full bg-gold/15 text-gold flex items-center justify-center text-xs font-bold shrink-0"
             aria-hidden="true"
             title={profile?.email ?? 'Signed in'}
           >
             {profile?.display_name?.charAt(0)?.toUpperCase() ?? '?'}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate text-text">
-              {profile?.display_name ?? 'User'}
-            </p>
-            <p className="text-[11px] text-gold truncate" title={profile?.email ?? ''}>
-              {profile?.email ?? 'No email'}
-            </p>
-            <p className="text-[10px] text-text-light truncate capitalize">
-              {profile?.position ?? 'Member'} · {profile?.role ?? 'member'}
-            </p>
           </div>
           <button
             type="button"
@@ -176,73 +183,44 @@ export default function Layout() {
             aria-label={`Sign out of ${profile?.email ?? 'this account'}`}
             title="Sign out"
           >
-            <LogOut size={15} aria-hidden="true" />
+            <LogOut size={16} aria-hidden="true" />
           </button>
         </div>
+      </header>
+
+      <div className="flex flex-1 min-h-0">
+        {/* ── Desktop sidebar ── */}
+        <aside className="hidden lg:flex w-[220px] border-r border-border bg-surface flex-col shrink-0">
+          {sidebar}
+        </aside>
+
+        {/* ── Mobile drawer ── */}
+        {sidebarOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden" ref={drawerRef} role="dialog" aria-modal="true" aria-label="Navigation menu">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" role="presentation" onClick={() => setSidebarOpen(false)} />
+            <aside className="relative w-[220px] bg-surface h-full shadow-2xl animate-slide-in">
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-surface-hover text-text-muted"
+                aria-label="Close navigation menu"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+              {sidebar}
+            </aside>
+          </div>
+        )}
+
+        {/* ── Main content ── */}
+        <main id="main-content" className="flex-1 flex flex-col min-w-0" tabIndex={-1}>
+          <div className="flex-1 overflow-y-auto p-4 lg:p-8">
+            <ErrorBoundary key={location.pathname} label="This page">
+              <Outlet />
+            </ErrorBoundary>
+          </div>
+        </main>
       </div>
-    </div>
-  )
 
-  return (
-    <div className="flex h-screen bg-bg">
-      <a href="#main-content" className="skip-link">Skip to main content</a>
-
-      <aside className="hidden lg:flex w-[260px] border-r border-border bg-surface flex-col shrink-0">
-        {sidebar}
-      </aside>
-
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden" ref={drawerRef} role="dialog" aria-modal="true" aria-label="Navigation menu">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" role="presentation" onClick={() => setSidebarOpen(false)} />
-          <aside className="relative w-[260px] bg-surface h-full shadow-2xl animate-slide-in">
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-surface-hover text-text-muted"
-              aria-label="Close navigation menu"
-            >
-              <X size={18} aria-hidden="true" />
-            </button>
-            {sidebar}
-          </aside>
-        </div>
-      )}
-
-      <main id="main-content" className="flex-1 flex flex-col min-w-0" tabIndex={-1}>
-        <header className="h-14 border-b border-border bg-surface/80 backdrop-blur-md flex items-center px-4 lg:hidden shrink-0">
-          <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-xl hover:bg-surface-hover transition-colors text-text-muted" aria-label="Open navigation menu">
-            <Menu size={20} aria-hidden="true" />
-          </button>
-          <div className="ml-3 flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-gold/10 border border-gold/20 flex items-center justify-center text-gold font-bold text-[9px]" aria-hidden="true">CA</div>
-            <span className="font-bold text-sm text-text">Checkmark Audio</span>
-          </div>
-          {/* Always-visible signed-in indicator so you never wonder which account
-              you're using, regardless of sidebar state. */}
-          <div
-            className="ml-auto flex items-center gap-2 min-w-0 max-w-[50%]"
-            title={profile?.email ?? ''}
-          >
-            <div className="w-7 h-7 rounded-full bg-gold/15 text-gold flex items-center justify-center text-[11px] font-bold shrink-0">
-              {profile?.display_name?.charAt(0)?.toUpperCase() ?? '?'}
-            </div>
-            <span className="text-[11px] text-text-muted truncate hidden sm:inline">
-              {profile?.email ?? 'Not signed in'}
-            </span>
-          </div>
-        </header>
-        <div className="flex-1 overflow-y-auto p-4 lg:p-8">
-          {/* Per-route boundary — keyed by pathname so navigating away from
-              a crashed page resets the boundary and renders the next page
-              cleanly, while keeping the sidebar alive. */}
-          <ErrorBoundary key={location.pathname} label="This page">
-            <Outlet />
-          </ErrorBoundary>
-        </div>
-      </main>
-
-      {/* Phase 6.2 — Forces a fresh password on the first login of any
-          admin-created member. Renders nothing unless the auth user has
-          `requires_password_change: true` in user_metadata. */}
       <ForcePasswordChangeModal />
     </div>
   )

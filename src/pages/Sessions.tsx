@@ -1,380 +1,188 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useAuth } from '../contexts/AuthContext'
-import { useToast } from '../components/Toast'
+import { useState } from 'react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
-import { supabase } from '../lib/supabase'
-import {
-  Button, EmptyState, PageHeader,
-} from '../components/ui'
-import {
-  DAY_START_MIN, DAY_END_MIN, DAY_RANGE_MIN,
-  formatTimeDisplay, blockLayout as sharedBlockLayout,
-} from '../lib/time'
-import { localDateKey } from '../lib/dates'
-import SessionFormModal from '../components/sessions/SessionFormModal'
-import type { Project, Session } from '../types'
-import {
-  Mic,
-  Plus,
-  Loader2,
-  Edit2,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-} from 'lucide-react'
+import { useTasks } from '../contexts/TaskContext'
+import CreateBookingModal from '../components/CreateBookingModal'
+import { ExternalLink } from 'lucide-react'
 
-const TYPE_LABELS: Record<Session['session_type'], string> = {
-  recording: 'Recording',
-  mixing: 'Mixing',
-  lesson: 'Lesson',
-  meeting: 'Meeting',
+/* ── Booking categories (matching mockup tabs) ── */
+const CATEGORIES = ['Engineer', 'Consult', 'Trailing', 'Music Lesson', 'Education'] as const
+type Category = typeof CATEGORIES[number]
+
+/* ── Booking status colors ── */
+const STATUS_STYLE: Record<string, { color: string; bg: string; border: string }> = {
+  Confirmed: { color: '#34d399', bg: 'rgba(16, 185, 129, 0.12)', border: 'rgba(16, 185, 129, 0.4)' },
+  Pending:   { color: '#fbbf24', bg: 'rgba(245, 158, 11, 0.12)', border: 'rgba(245, 158, 11, 0.4)' },
+  Cancelled: { color: '#f87171', bg: 'rgba(239, 68, 68, 0.12)', border: 'rgba(239, 68, 68, 0.4)' },
 }
 
-const TYPE_STYLE: Record<Session['session_type'], string> = {
-  recording: 'text-blue-300',
-  mixing: 'text-violet-300',
-  lesson: 'text-cyan-300',
-  meeting: 'text-text-muted',
+/* ── Placeholder bookings (matching mockup) ── */
+const BOOKINGS = [
+  {
+    id: '1',
+    client: 'The Podcast Hub',
+    date: 'Oct 26, 10:00 AM - 12:00 PM',
+    engineer: 'Sarah K. (Studio A)',
+    status: 'Confirmed',
+    category: 'Engineer' as Category,
+  },
+  {
+    id: '2',
+    client: 'Vocal Recording - James',
+    date: 'Oct 26, 2:00 PM - 4:00 PM',
+    engineer: 'Dave L. (Studio B)',
+    status: 'Pending',
+    category: 'Engineer' as Category,
+  },
+  {
+    id: '3',
+    client: 'Final Mix - Project Alpha',
+    date: 'Oct 27, 9:00 AM - 1:00 PM',
+    engineer: 'Ben J. (Main Suite)',
+    status: 'Confirmed',
+    category: 'Engineer' as Category,
+  },
+  {
+    id: '4',
+    client: 'Consulting Session - Maya',
+    date: 'Oct 28, 11:00 AM - 12:00 PM',
+    engineer: 'Sarah K.',
+    status: 'Confirmed',
+    category: 'Consult' as Category,
+  },
+  {
+    id: '5',
+    client: 'Trailing Session - New Intern',
+    date: 'Oct 29, 9:00 AM - 5:00 PM',
+    engineer: 'Dave L.',
+    status: 'Pending',
+    category: 'Trailing' as Category,
+  },
+]
+
+function StatusBadge({ status }: { status: string }) {
+  const style = STATUS_STYLE[status] ?? STATUS_STYLE.Pending
+  return (
+    <span
+      className="text-[11px] font-semibold px-3 py-1 rounded-full border"
+      style={{ color: style.color, backgroundColor: style.bg, borderColor: style.border }}
+    >
+      {status}
+    </span>
+  )
 }
 
-const STATUS_DOT: Record<Session['status'], string> = {
-  confirmed: 'bg-emerald-400',
-  pending: 'bg-gold',
-  cancelled: 'bg-red-400',
-}
-
-function blockLayout(start: string, end: string) {
-  return sharedBlockLayout(start, end, DAY_START_MIN, DAY_END_MIN)
-}
-
-const DAY_RANGE = DAY_RANGE_MIN
-
-function sessionBorderClass(status: Session['status']) {
-  if (status === 'pending') return 'border-2 border-dashed border-gold'
-  if (status === 'cancelled') return 'border border-border opacity-60'
-  return 'border border-border'
+const BOOKING_TYPE_TO_CATEGORY: Record<string, Category> = {
+  engineering: 'Engineer',
+  training: 'Trailing',
+  education: 'Education',
+  music_lesson: 'Music Lesson',
+  consultation: 'Consult',
 }
 
 export default function Sessions() {
-  useDocumentTitle('Sessions - Checkmark Audio')
-  const { profile } = useAuth()
-  const { toast } = useToast()
-  const [viewDate, setViewDate] = useState(() => new Date())
-  const dateStr = useMemo(() => localDateKey(viewDate), [viewDate])
+  useDocumentTitle('Booking Agent - Checkmark Audio')
+  const { bookings } = useTasks()
+  const [activeCategory, setActiveCategory] = useState<Category>('Engineer')
+  const [showBooking, setShowBooking] = useState(false)
 
-  const [sessions, setSessions] = useState<Session[]>([])
-  const [projects, setProjects] = useState<Pick<Project, 'id' | 'name'>[]>([])
-  const [loading, setLoading] = useState(true)
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<Session | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
-
-  const projectNameById = useMemo(() => {
-    const m = new Map<string, string>()
-    projects.forEach((p) => m.set(p.id, p.name))
-    return m
-  }, [projects])
-
-  const loadProjects = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('projects')
-      .select('id, name')
-      .order('name', { ascending: true })
-    if (error) {
-      console.error(error)
-      return
-    }
-    if (data) setProjects(data as Pick<Project, 'id' | 'name'>[])
-  }, [])
-
-  const loadSessions = useCallback(async () => {
-    if (!profile) {
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('sessions')
-      .select('*')
-      .eq('session_date', dateStr)
-      .order('start_time', { ascending: true })
-    if (error) {
-      console.error(error)
-      toast('Could not load sessions', 'error')
-      setSessions([])
-    } else if (data) {
-      setSessions(data as Session[])
-    }
-    setLoading(false)
-  }, [profile, dateStr, toast])
-
-  useEffect(() => { loadProjects() }, [loadProjects])
-  useEffect(() => { loadSessions() }, [loadSessions])
-
-  const goPrevDay = () => {
-    const d = new Date(viewDate)
-    d.setDate(d.getDate() - 1)
-    setViewDate(d)
-  }
-
-  const goNextDay = () => {
-    const d = new Date(viewDate)
-    d.setDate(d.getDate() + 1)
-    setViewDate(d)
-  }
-
-  const goToday = () => setViewDate(new Date())
-  const isToday = localDateKey(new Date()) === dateStr
-
-  const openCreate = () => {
-    setEditing(null)
-    setModalOpen(true)
-  }
-
-  const openEdit = (s: Session) => {
-    setEditing(s)
-    setModalOpen(true)
-  }
-
-  const closeModal = () => {
-    setModalOpen(false)
-    setEditing(null)
-  }
-
-  const handleDelete = async (s: Session) => {
-    if (!confirm('Remove this session from the schedule?')) return
-    setDeletingId(s.id)
-    const { error } = await supabase.from('sessions').delete().eq('id', s.id)
-    setDeletingId(null)
-    if (error) {
-      console.error(error)
-      toast(error.message || 'Failed to delete session', 'error')
-      return
-    }
-    toast('Session deleted')
-    loadSessions()
-  }
-
-  const hours = useMemo(() => {
-    const list: number[] = []
-    for (let h = 8; h <= 20; h++) list.push(h)
-    return list
-  }, [])
-
-  const headerDate = viewDate.toLocaleDateString(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  })
+  // Merge mock BOOKINGS with context bookings
+  const contextBookings = bookings.map(b => ({
+    id: b.id,
+    client: `${b.client} - ${b.description}`,
+    date: `${b.date}, ${b.startTime} - ${b.endTime}`,
+    engineer: `${b.assignee} (${b.studio})`,
+    status: b.status,
+    category: BOOKING_TYPE_TO_CATEGORY[b.type] ?? ('Engineer' as Category),
+  }))
+  const allBookings = [...BOOKINGS, ...contextBookings.filter(cb => !BOOKINGS.some(mb => mb.id === cb.id))]
+  const filtered = allBookings.filter(b => b.category === activeCategory)
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-12">
-      <PageHeader
-        icon={Mic}
-        title="Sessions"
-        subtitle="Studio bookings by day — rooms, clients, and status at a glance."
-        actions={
-          <Button
-            variant="primary"
-            onClick={openCreate}
-            iconLeft={<Plus className="h-4 w-4" aria-hidden="true" />}
-          >
-            Book session
-          </Button>
-        }
-      />
+    <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
+      {/* Header */}
+      <h1 className="text-2xl font-bold">Manage studio bookings</h1>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-border bg-surface px-4 py-3">
-        <div className="flex items-center justify-center gap-2 sm:justify-start">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={goPrevDay}
-            aria-label="Previous day"
-            className="!p-2"
+      {/* Top category tabs */}
+      <div className="flex gap-2 flex-wrap">
+        {CATEGORIES.map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setActiveCategory(cat)}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all border ${
+              activeCategory === cat
+                ? 'bg-gold text-black border-gold'
+                : 'bg-surface border-border text-text-muted hover:text-text hover:border-border-light'
+            }`}
           >
-            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
-          </Button>
-          <div className="min-w-[200px] text-center">
-            <p className="text-sm font-medium text-text">{headerDate}</p>
-            {isToday && (
-              <span className="text-label text-gold">Today</span>
-            )}
-          </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={goNextDay}
-            aria-label="Next day"
-            className="!p-2"
-          >
-            <ChevronRight className="h-5 w-5" aria-hidden="true" />
-          </Button>
-        </div>
-        <Button variant="secondary" size="sm" onClick={goToday} disabled={isToday}>
-          Today
-        </Button>
+            {cat}
+          </button>
+        ))}
       </div>
 
-      {loading && sessions.length === 0 ? (
-        <div
-          className="flex items-center justify-center min-h-[320px]"
-          role="status"
-          aria-live="polite"
-        >
-          <Loader2 className="h-9 w-9 animate-spin text-gold" aria-hidden="true" />
-          <span className="sr-only">Loading…</span>
-        </div>
-      ) : sessions.length === 0 ? (
-        <EmptyState
-          icon={Clock}
-          title="No sessions on this day"
-          description="Book the studio and keep the team aligned."
-          action={
-            <Button
-              variant="primary"
-              onClick={openCreate}
-              iconLeft={<Plus className="h-4 w-4" aria-hidden="true" />}
-            >
-              Book the first session
-            </Button>
-          }
-        />
-      ) : (
-        <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
-          {/* Timeline sidebar */}
-          <div
-            className="relative hidden lg:block rounded-2xl border border-border bg-bg overflow-hidden"
-            aria-hidden="true"
-          >
-            <div className="border-b border-border bg-surface-alt px-3 py-2 text-xs font-medium uppercase tracking-wider text-text-muted">
-              Timeline
-            </div>
-            <div className="relative h-[640px]">
-              {hours.map((h) => (
-                <div
-                  key={h}
-                  className="absolute left-0 right-0 border-t border-border/60 text-[10px] text-text-light pl-2 pt-0.5"
-                  style={{ top: `${((h * 60 - DAY_START_MIN) / DAY_RANGE) * 100}%` }}
-                >
-                  {h > 12 ? h - 12 : h}
-                  {h >= 12 ? ' PM' : ' AM'}
-                </div>
-              ))}
-              {sessions.map((s) => {
-                const { topPct, heightPct } = blockLayout(s.start_time, s.end_time)
-                return (
-                  <div
-                    key={s.id}
-                    className={`absolute left-12 right-2 rounded-xl bg-surface-alt px-2 py-1.5 shadow-sm ${sessionBorderClass(s.status)}`}
-                    style={{ top: `${topPct}%`, height: `${heightPct}%`, minHeight: 44 }}
-                  >
-                    <div className="flex h-full flex-col overflow-hidden">
-                      <div className="flex items-center gap-1.5 text-[11px] font-medium text-text">
-                        <span
-                          className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT[s.status]}`}
-                          aria-hidden="true"
-                        />
-                        <span className="truncate">
-                          {formatTimeDisplay(s.start_time)} – {formatTimeDisplay(s.end_time)}
-                        </span>
-                      </div>
-                      <p className={`truncate text-xs font-medium ${TYPE_STYLE[s.session_type]}`}>
-                        {TYPE_LABELS[s.session_type]}
-                      </p>
-                      <p className="truncate text-[11px] text-text-muted">
-                        {s.client_name || projectNameById.get(s.project_id ?? '') || 'Session'}
-                      </p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+      {/* Book a Session CTA */}
+      {showBooking && <CreateBookingModal onClose={() => setShowBooking(false)} />}
+      <button
+        onClick={() => setShowBooking(true)}
+        className="w-full py-3.5 rounded-xl bg-gold hover:bg-gold-muted text-black text-sm font-bold flex items-center justify-center gap-2 transition-colors"
+      >
+        Book a Session
+        <ExternalLink size={15} />
+      </button>
 
-          {/* Session card list */}
-          <div className="space-y-3">
-            <h2 className="text-sm font-medium text-text-muted flex items-center gap-2 lg:hidden">
-              <Clock className="h-4 w-4 text-gold" aria-hidden="true" />
-              {sessions.length} session{sessions.length === 1 ? '' : 's'}
-            </h2>
-            <ul className="space-y-3">
-              {sessions.map((s) => (
-                <li
-                  key={s.id}
-                  className={`rounded-2xl bg-surface p-4 transition-colors hover:bg-surface-hover ${sessionBorderClass(s.status)}`}
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span
-                          className={`inline-flex h-2 w-2 rounded-full ${STATUS_DOT[s.status]}`}
-                          aria-hidden="true"
-                        />
-                        <span className="text-sm font-semibold text-text capitalize">{s.status}</span>
-                        <span className="text-text-light">·</span>
-                        <span className={`text-sm font-medium ${TYPE_STYLE[s.session_type]}`}>
-                          {TYPE_LABELS[s.session_type]}
-                        </span>
-                      </div>
-                      <p className="flex items-center gap-2 text-sm text-text">
-                        <Clock className="h-4 w-4 shrink-0 text-gold" aria-hidden="true" />
-                        {formatTimeDisplay(s.start_time)} – {formatTimeDisplay(s.end_time)}
-                      </p>
-                      <p className="text-sm text-text-muted">
-                        <span className="text-text">Client: </span>
-                        {s.client_name || '—'}
-                      </p>
-                      {s.project_id && (
-                        <p className="text-xs text-text-light truncate">
-                          Project: {projectNameById.get(s.project_id) ?? s.project_id}
-                        </p>
-                      )}
-                      {s.room && (
-                        <p className="text-xs text-text-muted">
-                          Room: <span className="text-text">{s.room}</span>
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEdit(s)}
-                        aria-label="Edit session"
-                        className="!p-2"
-                      >
-                        <Edit2 className="h-4 w-4" aria-hidden="true" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(s)}
-                        loading={deletingId === s.id}
-                        aria-label="Delete session"
-                        className="!p-2 text-text-muted hover:text-red-400 hover:bg-red-500/10"
-                      >
-                        {deletingId !== s.id && <Trash2 className="h-4 w-4" aria-hidden="true" />}
-                      </Button>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
+      {/* Current bookings */}
+      <div className="bg-surface rounded-2xl border border-border overflow-hidden">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-text">Current bookings</h2>
+          <div className="flex gap-1.5 flex-wrap">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`px-2.5 py-0.5 rounded-md text-[10px] font-semibold transition-all ${
+                  activeCategory === cat
+                    ? 'bg-gold/15 text-gold border border-gold/30'
+                    : 'text-text-light hover:text-text-muted'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
           </div>
         </div>
-      )}
 
-      <SessionFormModal
-        open={modalOpen}
-        onClose={closeModal}
-        editing={editing}
-        defaultDate={dateStr}
-        projects={projects}
-        onSaved={loadSessions}
-      />
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border/50">
+                <th className="px-5 py-3 text-left text-xs font-semibold text-text-muted uppercase tracking-wide">Client</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-text-muted uppercase tracking-wide">Date</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-text-muted uppercase tracking-wide">Engineer</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold text-text-muted uppercase tracking-wide">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/30">
+              {filtered.map((booking) => (
+                <tr key={booking.id} className="hover:bg-white/[0.02] transition-colors">
+                  <td className="px-5 py-3.5 text-text font-medium">{booking.client}</td>
+                  <td className="px-5 py-3.5 text-text-muted">{booking.date}</td>
+                  <td className="px-5 py-3.5 text-text-muted">{booking.engineer}</td>
+                  <td className="px-5 py-3.5">
+                    <StatusBadge status={booking.status} />
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-5 py-8 text-center text-text-muted text-sm">
+                    No bookings for this category yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }

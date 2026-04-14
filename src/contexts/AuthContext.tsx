@@ -17,7 +17,33 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
+// DEV BYPASS — provide a fake admin profile so the full UI renders locally
+function DevAuthProvider({ children }: { children: ReactNode }) {
+  const mockProfile = {
+    id: 'dev-user',
+    display_name: 'Dev Admin',
+    email: 'dev@checkmarkaudio.com',
+    role: 'admin',
+    position: 'Developer',
+  } as TeamMember
+
+  const value = useMemo(() => ({
+    user: { id: 'dev-user', email: 'dev@checkmarkaudio.com' } as SupabaseUser,
+    profile: mockProfile,
+    session: null,
+    loading: false,
+    isAdmin: true,
+    signIn: async () => ({ error: null }),
+    signOut: async () => {},
+    refreshProfile: async () => {},
+  }), [])
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
+  // DEV BYPASS
+  if (import.meta.env.DEV) return <DevAuthProvider>{children}</DevAuthProvider>
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [profile, setProfile] = useState<TeamMember | null>(null)
   const [session, setSession] = useState<Session | null>(null)

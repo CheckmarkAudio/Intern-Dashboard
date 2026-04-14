@@ -1,10 +1,15 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
-export default function ProtectedRoute({ children, adminOnly = false }: {
+export default function ProtectedRoute({ children, adminOnly: _adminOnly = false }: {
   children: React.ReactNode
   adminOnly?: boolean
 }) {
+  // DEV BYPASS — skip auth for local UI work
+  if (import.meta.env.DEV) {
+    return <>{children}</>
+  }
+
   const { user, loading, isAdmin } = useAuth()
 
   if (loading) {
@@ -17,7 +22,7 @@ export default function ProtectedRoute({ children, adminOnly = false }: {
   }
 
   if (!user) return <Navigate to="/login" replace />
-  if (adminOnly && !isAdmin) return <Navigate to="/" replace />
+  if (_adminOnly && !isAdmin) return <Navigate to="/" replace />
 
   return <>{children}</>
 }
